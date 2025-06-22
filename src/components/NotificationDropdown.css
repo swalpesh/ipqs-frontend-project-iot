@@ -1,0 +1,21 @@
+.notification-dropdown {
+  position: absolute;
+  top: 60px;
+  right: 60px;
+  width: 360px;
+  max-height: 400px;
+  overflow-y: auto;
+  border-radius: 16px;
+  background-color: white;
+  z-index: 1200;
+  border: none;
+}
+.notification-dropdown .list-group-item {
+  background: white;
+  padding: 1rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+.notification-dropdown .list-group-item:hover {
+  background-color: #f9f9f9;
+  cursor: pointer;
+}

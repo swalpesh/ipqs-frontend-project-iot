@@ -1,0 +1,30 @@
+.monthly-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* 4 items per row */
+  gap: 12px;
+}
+
+.month-card {
+  background: #f5f5f5;
+  padding: 12px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.month {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #4caf50;
+}
+
+.unit {
+  font-size: 12px;
+  font-weight: 500;
+  color: #555;
+}
