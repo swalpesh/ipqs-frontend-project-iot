@@ -7,7 +7,10 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import deviceImg from '../assets/solar-panel.png';
 
-const socket = io('http://31.97.9.220:4000');
+const socket = io("https://ipqsoms.com", {
+  path: "/socket.io",
+  transports: ["websocket"],
+});
 
 export default function DevicePreview({ onViewAll, showAll = false }) {
   const navigate = useNavigate();

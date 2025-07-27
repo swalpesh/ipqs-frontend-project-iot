@@ -5,7 +5,10 @@ import io from 'socket.io-client';
 import DataTable from 'react-data-table-component';
 import { toast } from 'react-toastify';
 
-const socket = io('http://31.97.9.220:4000');
+const socket = io("https://ipqsoms.com", {
+  path: "/socket.io",
+  transports: ["websocket"],
+});
 
 export default function Adminalldevices() {
   const [devices, setDevices] = useState([]);

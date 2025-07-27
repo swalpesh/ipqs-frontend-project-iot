@@ -5,7 +5,10 @@ import { Bolt, BatteryChargingFull, ElectricalServices } from '@mui/icons-materi
 import ReactSpeedometer from "react-d3-speedometer";
 import solarImage from '../assets/solar-panel.png';
 
-const socket = io('http://31.97.9.220:4000'); // 👈 Adjust for deployment if needed
+const socket = io("https://ipqsoms.com", {
+  path: "/socket.io",
+  transports: ["websocket"],
+});
 
 export default function MainCards({ device_id }) {
   const [data, setData] = useState({
@@ -105,7 +108,7 @@ export default function MainCards({ device_id }) {
               <ReactSpeedometer
                 value={data.voltage}
                 minValue={0}
-                maxValue={300}
+                maxValue={500}
                 height={140}
                 width={200}
                 needleColor="#007bff"
@@ -123,7 +126,7 @@ export default function MainCards({ device_id }) {
               <ReactSpeedometer
                 value={data.current}
                 minValue={0}
-                maxValue={50}
+                maxValue={1000}
                 height={140}
                 width={200}
                 needleColor="#198754"

@@ -6,7 +6,10 @@ import SolarPowerIcon from '@mui/icons-material/SolarPower';
 import deviceImg from '../../assets/solar-panel.png';
 import io from 'socket.io-client';
 
-const socket = io('http://31.97.9.220:4000'); // Adjust for production
+const socket = io("https://ipqsoms.com", {
+  path: "/socket.io",
+  transports: ["websocket"],
+});
 
 export default function AdminDevicePreview({ companyId }) {
   const navigate = useNavigate();

@@ -81,7 +81,9 @@ input.form-control {
   background-color: rgba(0,0,0,0.2);
   border-radius: 10px;
 }
-
+.alt{
+  color: #000 !important;
+}
 @media (max-width: 900px) {
   .notification-panel {
     display: none !important;

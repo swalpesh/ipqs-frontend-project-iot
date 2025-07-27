@@ -13,12 +13,16 @@ export default function DeviceDataTable({ device_id }) {
   const [filterDate, setFilterDate] = useState('');
   const [filterHour, setFilterHour] = useState('');
   const [csvData, setCsvData] = useState([]);
+  const [fullDayData, setFullDayData] = useState([]);
+  const [loadingFullExport, setLoadingFullExport] = useState(false);
+
+  const userRole = localStorage.getItem('role');
 
   const getCurrentDateHourMinusOne = () => {
     const now = new Date();
-    now.setHours(now.getHours() - 1);
-    const dateStr = now.toISOString().split('T')[0];
-    const prevHour = now.getHours();
+    const adjusted = new Date(now.getTime() - 60 * 60 * 1000);
+    const dateStr = adjusted.toISOString().split('T')[0];
+    const prevHour = adjusted.getHours();
     return { dateStr, prevHour };
   };
 
@@ -44,7 +48,7 @@ export default function DeviceDataTable({ device_id }) {
       } else {
         setErrorMsg('');
         setTableData([data]);
-        setCsvData([data]); // Set complete JSON for export
+        setCsvData([data]);
       }
     } catch (err) {
       console.error('Fetch Error:', err);
@@ -53,6 +57,42 @@ export default function DeviceDataTable({ device_id }) {
       setCsvData([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchFullDayData = async () => {
+    if (!filterDate) {
+      alert('Please select a date first.');
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    const formattedDate = format(new Date(filterDate), 'yyyy-MM-dd');
+    const apiUrl = `https://ipqsoms.com/api/admin/device/full-day-data?device_id=${device_id}&date=${formattedDate}`;
+    setLoadingFullExport(true);
+
+    try {
+      const res = await fetch(apiUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const result = await res.json();
+      console.log('API Response:', result);
+
+      if (!Array.isArray(result.data) || result.data.length === 0) {
+        alert('No data found for the selected date.');
+        setFullDayData([]);
+      } else {
+        setFullDayData(result.data);
+      }
+    } catch (err) {
+      console.error('Full Day Export Error:', err);
+      alert(err.message);
+      setFullDayData([]);
+    } finally {
+      setLoadingFullExport(false);
     }
   };
 
@@ -81,7 +121,14 @@ export default function DeviceDataTable({ device_id }) {
   };
 
   const columns = [
-    { name: 'Timestamp', selector: row => format(new Date(row.timestamp_utc), 'yyyy-MM-dd HH:mm:ss'), sortable: true },
+    {
+  name: 'Timestamp',
+  selector: row =>
+    row.timestamp_utc && !isNaN(new Date(row.timestamp_utc))
+      ? format(new Date(row.timestamp_utc), 'yyyy-MM-dd HH:mm:ss')
+      : '--',
+  sortable: true,
+},
     { name: 'Running PF', selector: row => row.running_power_factor ?? '--' },
     { name: 'Running KVAR Total', selector: row => row.running_kvar_total ?? '--' },
     { name: 'kWh Diff', selector: row => row.kwh_diff ?? '--' },
@@ -95,15 +142,26 @@ export default function DeviceDataTable({ device_id }) {
     <Card className="p-4 shadow-sm bg-white border-0 rounded-4 w-100">
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3">
         <h6 className="fw-bold mb-2 mb-md-0">Device Detailed Data</h6>
-        {csvData.length > 0 && (
-          <CSVLink
-            data={csvData}
-            filename={`device-${device_id}-hourly.csv`}
-            className="btn btn-sm btn-outline-success"
-          >
-            Export Excel
-          </CSVLink>
-        )}
+        <div className="d-flex gap-2 flex-wrap">
+          {csvData.length > 0 && (
+            <CSVLink
+              data={csvData}
+              filename={`device-${device_id}-hourly.csv`}
+              className="btn btn-sm btn-outline-success"
+            >
+              Export Hourly Excel
+            </CSVLink>
+          )}
+          {fullDayData.length > 0 && userRole !== 'company' && (
+            <CSVLink
+              data={fullDayData}
+              filename={`device-${device_id}-fullday-${filterDate}.csv`}
+              className="btn btn-sm btn-outline-primary"
+            >
+              Export Full Day Excel
+            </CSVLink>
+          )}
+        </div>
       </div>
 
       <div><small>Showing data 1 hour prior to current time.</small></div>
@@ -117,7 +175,7 @@ export default function DeviceDataTable({ device_id }) {
             onChange={(e) => setFilterDate(e.target.value)}
           />
         </div>
-        <div className="col-md-4">
+        <div className="col-md-2">
           <Form.Label>Select Hour (0-23)</Form.Label>
           <Form.Control
             type="number"
@@ -127,11 +185,18 @@ export default function DeviceDataTable({ device_id }) {
             onChange={(e) => setFilterHour(e.target.value)}
           />
         </div>
-        <div className="col-md-4 d-flex align-items-end">
+        <div className="col-md-3 d-flex align-items-end">
           <Button variant="primary" className="w-100" onClick={handleFilter}>
             Fetch Data
           </Button>
         </div>
+        {userRole !== 'company' && (
+          <div className="col-md-3 d-flex align-items-end">
+            <Button variant="outline-primary" className="w-100" onClick={fetchFullDayData} disabled={loadingFullExport}>
+              {loadingFullExport ? 'Exporting...' : 'Export Full Day Data'}
+            </Button>
+          </div>
+        )}
       </div>
 
       {loading ? (

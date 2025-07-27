@@ -48,7 +48,7 @@ export default function AdminSubscriptions() {
     },
     {
       name: 'Subscription Ends',
-      selector: row => format(addYears(new Date(row.created_at), 1), 'dd/MM/yyyy'),
+      selector: row => format(new Date(row.subscription_end), 'dd/MM/yyyy'),
       sortable: true,
     },
     {
