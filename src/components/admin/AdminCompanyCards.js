@@ -7,6 +7,10 @@ export default function AdminCompanyCards({ showExploreAll = true }) {
   const [companies, setCompanies] = useState([]);
   const [filteredCompanies, setFilteredCompanies] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedState, setSelectedState] = useState('');
+  const [selectedCity, setSelectedCity] = useState('');
+  const [availableStates, setAvailableStates] = useState([]);
+  const [availableCities, setAvailableCities] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -43,6 +47,12 @@ export default function AdminCompanyCards({ showExploreAll = true }) {
           device_count: deviceMap[company.company_id] || 0,
         }));
 
+        const states = [...new Set(mergedCompanies.map(c => c.company_state).filter(Boolean))];
+        const cities = [...new Set(mergedCompanies.map(c => c.company_city).filter(Boolean))];
+
+        setAvailableStates(states.sort());
+        setAvailableCities(cities.sort());
+
         setCompanies(mergedCompanies);
         setFilteredCompanies(mergedCompanies);
       } catch (err) {
@@ -57,13 +67,43 @@ export default function AdminCompanyCards({ showExploreAll = true }) {
     fetchData();
   }, []);
 
-  const handleSearch = (e) => {
-    const keyword = e.target.value.toLowerCase();
-    setSearchTerm(keyword);
-    const filtered = companies.filter((company) =>
-      company.company_name.toLowerCase().includes(keyword)
-    );
+  useEffect(() => {
+    let filtered = companies;
+
+    if (searchTerm) {
+      filtered = filtered.filter((company) =>
+        company.company_name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    if (selectedState) {
+      filtered = filtered.filter((company) => company.company_state === selectedState);
+    }
+
+    if (selectedCity) {
+      filtered = filtered.filter((company) => company.company_city === selectedCity);
+    }
+
     setFilteredCompanies(filtered);
+  }, [searchTerm, selectedState, selectedCity, companies]);
+
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const handleStateChange = (e) => {
+    const value = e.target.value;
+    setSelectedState(value);
+    setSelectedCity(''); // reset city when state changes
+
+    const filteredCities = companies
+      .filter(c => c.company_state === value)
+      .map(c => c.company_city);
+    setAvailableCities([...new Set(filteredCities)].sort());
+  };
+
+  const handleCityChange = (e) => {
+    setSelectedCity(e.target.value);
   };
 
   const displayedCompanies = showExploreAll
@@ -91,18 +131,38 @@ export default function AdminCompanyCards({ showExploreAll = true }) {
         )}
       </div>
 
-      <InputGroup className="mb-4 shadow-sm">
-        <InputGroup.Text className="bg-white border-end-0">
-          <SearchIcon fontSize="small" />
-        </InputGroup.Text>
-        <Form.Control
-          type="text"
-          placeholder="Search companies by name..."
-          value={searchTerm}
-          onChange={handleSearch}
-          className="border-start-0 shadow-none"
-        />
-      </InputGroup>
+      <Row className="g-3 mb-4">
+        <Col xs={12} md={4}>
+          <InputGroup className="shadow-sm">
+            <InputGroup.Text className="bg-white border-end-0">
+              <SearchIcon fontSize="small" />
+            </InputGroup.Text>
+            <Form.Control
+              type="text"
+              placeholder="Search companies by name..."
+              value={searchTerm}
+              onChange={handleSearch}
+              className="border-start-0 shadow-none"
+            />
+          </InputGroup>
+        </Col>
+        <Col xs={12} md={4}>
+          <Form.Select value={selectedState} onChange={handleStateChange}>
+            <option value="">Filter by State</option>
+            {availableStates.map((state, index) => (
+              <option key={index} value={state}>{state}</option>
+            ))}
+          </Form.Select>
+        </Col>
+        <Col xs={12} md={4}>
+          <Form.Select value={selectedCity} onChange={handleCityChange}>
+            <option value="">Filter by City</option>
+            {availableCities.map((city, index) => (
+              <option key={index} value={city}>{city}</option>
+            ))}
+          </Form.Select>
+        </Col>
+      </Row>
 
       <Row className="g-4">
         {displayedCompanies.length === 0 ? (
@@ -118,6 +178,9 @@ export default function AdminCompanyCards({ showExploreAll = true }) {
                     <div className="text-secondary mb-3">
                       <strong>{company.device_count}</strong> devices installed
                     </div>
+                    {/* <div className="text-muted small">
+                      {company.company_city}, {company.company_state}
+                    </div> */}
                   </div>
                   <Button
                     variant="outline-dark"

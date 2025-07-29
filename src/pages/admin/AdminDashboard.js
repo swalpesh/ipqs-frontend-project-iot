@@ -1,15 +1,24 @@
+// AdminDashboard.js
 import React, { useEffect, useState } from 'react';
 import { Card, Col, Row, Button, Spinner } from 'react-bootstrap';
 import BusinessIcon from '@mui/icons-material/Business';
 import DevicesIcon from '@mui/icons-material/Devices';
 import SubscriptionsIcon from '@mui/icons-material/Description';
 import { useNavigate } from 'react-router-dom';
+import DeviceImage from '../../assets/solar-panel.png';
+import io from 'socket.io-client';
+
+const socket = io("https://ipqsoms.com", {
+  path: "/socket.io",
+  transports: ["websocket"],
+});
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [companies, setCompanies] = useState([]);
   const [totalCompanies, setTotalCompanies] = useState(0);
   const [totalDevices, setTotalDevices] = useState(0);
+  const [topCompanies, setTopCompanies] = useState([]);
+  const [liveData, setLiveData] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,12 +27,17 @@ export default function AdminDashboard() {
 
     const fetchData = async () => {
       try {
-        const [companiesRes, devicesRes] = await Promise.all([
+        const [companiesRes, devicesRes, topPerformingRes] = await Promise.all([
           fetch(`${process.env.REACT_APP_API_BASE_URL}/admin/companies/devices`, { headers }),
           fetch(`${process.env.REACT_APP_API_BASE_URL}/admin/devices`, { headers }),
+          fetch(`${process.env.REACT_APP_API_BASE_URL}/admin/top-performing-companies`, { headers })
         ]);
 
-        if (companiesRes.status === 401 || devicesRes.status === 401) {
+        if (
+          companiesRes.status === 401 ||
+          devicesRes.status === 401 ||
+          topPerformingRes.status === 401
+        ) {
           localStorage.clear();
           window.location.href = '/login';
           return;
@@ -31,10 +45,22 @@ export default function AdminDashboard() {
 
         const companiesData = await companiesRes.json();
         const devicesData = await devicesRes.json();
+        const topCompaniesData = await topPerformingRes.json();
 
-        setCompanies(companiesData.companies || []);
         setTotalCompanies(companiesData.total_companies || 0);
         setTotalDevices(devicesData.total_devices || 0);
+        setTopCompanies(topCompaniesData || []);
+
+        topCompaniesData.forEach(company => {
+          company.devices.forEach(device => {
+            const eventName = `device-data-${device.device_id}`;
+            socket.on(eventName, (data) => {
+              console.log('🔌 Live update:', data);
+              setLiveData(prev => ({ ...prev, [data.device_id]: data }));
+            });
+            console.log(`📡 Subscribing to ${eventName}`);
+          });
+        });
       } catch (error) {
         console.error('Error fetching admin dashboard data:', error);
       } finally {
@@ -76,12 +102,10 @@ export default function AdminDashboard() {
 
   return (
     <div className="container-fluid mt-4">
-      {/* Header */}
       <div className="row mt-2 mb-3">
         <h1>Welcome Admin!</h1>
       </div>
 
-      {/* Metric Cards */}
       <div className="row g-4 mb-5">
         {cards.map((card, index) => (
           <Col key={index} xs={12} md={6} lg={4}>
@@ -98,53 +122,109 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* Companies Overview */}
       <div className="d-flex justify-content-between align-items-center mb-3">
-        <h5 className="fw-bold mb-0">Companies Overview</h5>
-        <Button
-          variant="outline-primary"
-          className="rounded-pill fw-semibold px-4 py-1"
-          size="sm"
-          onClick={() => navigate('/admin/companies')}
-        >
-          Explore All Companies
-        </Button>
+        <h5 className="fw-bold mb-0">Top Performing Companies</h5>
+        
       </div>
 
       <Row className="g-4">
-        {companies.map((company) => (
-          <Col key={company.company_id} xs={12} sm={6} lg={3}>
-            <Card className="rounded-4 border-0 shadow-sm p-4 h-100 company-card transition">
-              <div>
-                <div className="text-muted small fw-semibold mb-2">COMPANY</div>
-                <h5 className="fw-bold text-dark">{company.company_name}</h5>
-                <div className="text-secondary mb-4">
-                  <strong>{company.device_count}</strong> devices installed
-                </div>
-              </div>
-              <Button
-                variant="outline-dark"
-                className="w-100 rounded-pill fw-semibold"
-                onClick={() => navigate(`/admin/companies/${company.company_id}`)}
-              >
-                Explore Company
-              </Button>
-            </Card>
-          </Col>
-        ))}
-      </Row>
+        {topCompanies.length === 0 ? (
+          <p className="text-muted">No top performing companies found.</p>
+        ) : (
+          topCompanies.map((company) => (
+            <Col xs={12} sm={12} md={6} lg={6} key={company.company_id}>
+              <Card className="rounded-4 border-0 shadow-sm p-4 h-100 position-relative">
+                <div>
+                  <h4 className="text-primary fw-bold mb-2">{company.company_name}</h4>
 
-      <style>{`
-        .company-card:hover {
-          transform: translateY(-4px);
-          transition: all 0.2s ease-in-out;
-        }
-        .company-card:hover .btn {
-          background-color: #45C8C2;
-          border-color: #45C8C2;
-          color: white;
-        }
-      `}</style>
+                  {company.devices.length > 0 ? (
+                    company.devices.map((device) => {
+                      const live = liveData[device.device_id] || {};
+                      return (
+                        <div key={device.device_id}>
+                          <div className="text-muted small fw-semibold mb-1">Device ID: {device.device_id}</div>
+                          <div className="text-success fw-bold mb-2">● Active</div>
+                          <h2 className="fw-bold text-dark">{live.kw ?? '--'} kW</h2>
+                          <p className="mb-1 text-muted small">
+                            <strong>Current:</strong> {live.current ?? '--'} A &nbsp;&nbsp;&nbsp;
+                            <strong>Voltage:</strong> {live.voltage ?? '--'} V
+                          </p>
+
+                          <Row className="gy-2 mt-3">
+                            <Col xs={6} md={4}>
+                              <div className="border rounded p-2 text-center shadow-sm bg-light">
+                                <div className="small text-muted">KWh</div>
+                                <div className="fw-bold">{live.kwh ?? '--'}</div>
+                              </div>
+                            </Col>
+                            <Col xs={6} md={4}>
+                              <div className="border rounded p-2 text-center shadow-sm bg-light">
+                                <div className="small text-muted">Kvar</div>
+                                <div className="fw-bold">{live.kvar ?? '--'}</div>
+                              </div>
+                            </Col>
+                            <Col xs={6} md={4}>
+                              <div className="border rounded p-2 text-center shadow-sm bg-light">
+                                <div className="small text-muted">KVAh</div>
+                                <div className="fw-bold">{live.kvah ?? '--'}</div>
+                              </div>
+                            </Col>
+                            <Col xs={6} md={6}>
+                              <div className="border rounded p-2 text-center shadow-sm bg-light">
+                                <div className="small text-muted">Kvarh Lag</div>
+                                <div className="fw-bold">{live.kvarhlag ?? '--'}</div>
+                              </div>
+                            </Col>
+                            <Col xs={6} md={6}>
+                              <div className="border rounded p-2 text-center shadow-sm bg-light">
+                                <div className="small text-muted">Kvarh Lead</div>
+                                <div className="fw-bold">{live.kvarhlead ?? '--'}</div>
+                              </div>
+                            </Col>
+                          </Row>
+
+                          <div className="mt-4">
+                            <div className="fw-semibold text-muted mb-1">Power Factor</div>
+                            <div className="position-relative" style={{ height: '25px' }}>
+                              <div
+                                className="position-absolute top-0 start-0 w-100 h-100 rounded"
+                                style={{
+                                  background: 'linear-gradient(to right, #ff0000 0%, #ffa500 25%, #00cc00 50%, #ffa500 75%, #ff0000 100%)',
+                                }}
+                              ></div>
+                              <div
+                                className="position-absolute top-50 translate-middle-y"
+                                style={{
+                                  left: `${Math.min(Math.max(((live.power_factor ?? 0) - 0.8) / 0.4, 0), 1) * 100}%`,
+                                  width: '4px',
+                                  height: '30px',
+                                  backgroundColor: '#333',
+                                }}
+                              />
+                              <div className="position-absolute top-50 translate-middle-y text-center w-100">
+                                <strong>{ typeof live.power_factor === 'number' ? live.power_factor.toFixed(3) : '--' }</strong>
+                              </div>
+                            </div>
+                          </div>
+
+                          <hr className="my-4" />
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-muted">No devices assigned.</div>
+                  )}
+                </div>
+                <img
+                  src={DeviceImage}
+                  alt="device"
+                  style={{ width: 100, position: 'absolute', top: 50, right: 30 }}
+                />
+              </Card>
+            </Col>
+          ))
+        )}
+      </Row>
     </div>
   );
 }
