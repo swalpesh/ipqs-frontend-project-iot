@@ -61,7 +61,7 @@ import MemoryIcon from "@mui/icons-material/Memory";
 // --- Assets ---
 import videoBackground from "../assets/Video Project.mp4";
 import logoImage from "../assets/iot.png";
-import "../welcome.css"; 
+import "./welcome.css"; 
 
 // --- Custom Dark Theme Definition ---
 const darkTheme = createTheme({
