@@ -108,7 +108,7 @@ export default function AdminCompanyCards({ showExploreAll = true }) {
 
   const displayedCompanies = showExploreAll
     ? filteredCompanies
-    : filteredCompanies.slice(0, 8);
+    : filteredCompanies.slice(0, 1000);
 
   if (loading) {
     return (

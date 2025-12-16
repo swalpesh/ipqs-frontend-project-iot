@@ -47,8 +47,8 @@ export default function MainCards({ device_id }) {
     <Card className="p-4 shadow-sm bg-white border-0 rounded-4 w-100">
       <Row className="align-items-center">
         <Col md={4} className="text-center d-flex flex-column justify-content-center align-items-center mb-4 mb-md-0">
-          <h6 className="text-muted">kW</h6>
-          <h2 className="fw-bold">{data.kw} kW</h2>
+          <h6 className="text-muted">Power Factor</h6>
+          <h2 className="fw-bold">{data.power_factor}</h2>
           <img src={solarImage} alt="Solar Panel" width="90" className="my-2" />
           <h5 className="fw-bold mt-2">Device ID</h5>
           <h6 className="fw-bold text-uppercase">{device_id}</h6>
@@ -59,8 +59,8 @@ export default function MainCards({ device_id }) {
             <Col xs={6} className="d-flex align-items-center">
               <BatteryChargingFull className="me-2 text-primary" />
               <div>
-                <small className="text-muted">Power Factor</small>
-                <div className="fw-bold">{data.power_factor}</div>
+                <small className="text-muted">kW</small>
+                <div className="fw-bold">{data.kw} kW</div>
               </div>
             </Col>
             <Col xs={6} className="d-flex align-items-center">
