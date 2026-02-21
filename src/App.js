@@ -9,7 +9,6 @@ import {
 import 'react-toastify/dist/ReactToastify.css';
 import { ToastContainer } from 'react-toastify';
 
-
 /* Common Components */
 import Sidebar from './components/Sidebar';
 import AdminSidebar from './components/admin/AdminSidebar';
@@ -18,8 +17,9 @@ import ScrollToTop from './components/ScrollToTop';
 import FullPageLoader from './components/FullPageLoader';
 
 /* Pages */
-import Welcome from './pages/welcome';   // ✅ ADD THIS
+import Welcome from './pages/welcome';
 import Login from './pages/Login';
+import TataPowerDashboard from './pages/TataPowerDashboard';
 
 /* User Pages */
 import DashboardPage from './pages/DashboardPage';
@@ -65,6 +65,7 @@ function AppContent() {
   const isAdmin = location.pathname.startsWith('/admin');
   const isLoginPage = location.pathname === '/login';
   const isWelcomePage = location.pathname === '/';
+  const isTataPowerPage = location.pathname === '/tatapower'; // ✅ NEW
 
   const token = localStorage.getItem('token');
   const role = localStorage.getItem('role');
@@ -111,6 +112,15 @@ function AppContent() {
     return (
       <Routes>
         <Route path="/login" element={<Login />} />
+      </Routes>
+    );
+  }
+
+  /* 🔹 Tata Power Standalone Page */
+  if (isTataPowerPage) {
+    return (
+      <Routes>
+        <Route path="/tatapower" element={<TataPowerDashboard />} />
       </Routes>
     );
   }

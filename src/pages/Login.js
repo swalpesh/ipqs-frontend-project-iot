@@ -5,7 +5,7 @@ import axios from 'axios';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import IconButton from '@mui/material/IconButton';
 import logo from '../assets/logo.png';
-import './Login.css'; // Background + card styling
+import './Login.css';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -23,27 +23,37 @@ export default function Login() {
     setErrorMsg('');
 
     const adminUsername = 'technical@ipqspl.com';
+    const tataPowerUsername = 'TataPowerJalna@2026';
 
-    const endpoint = username.toLowerCase() === adminUsername
-      ? `${process.env.REACT_APP_API_BASE_URL}/admin/login`
-      : `${process.env.REACT_APP_API_BASE_URL}/company/auth/login`;
+    const endpoint =
+      username.toLowerCase() === adminUsername
+        ? `${process.env.REACT_APP_API_BASE_URL}/admin/login`
+        : `${process.env.REACT_APP_API_BASE_URL}/company/auth/login`;
 
     try {
       const response = await axios.post(endpoint, { username, password });
       const { token, role } = response.data;
+
       localStorage.setItem('token', token);
       localStorage.setItem('role', role);
 
       setTimeout(() => {
-        if (role === 'admin') {
+        /* 🔥 SPECIAL REDIRECTION FOR TATA POWER */
+        if (username === tataPowerUsername) {
+          navigate('/tatapower');
+        } 
+        else if (role === 'admin') {
           navigate('/admin/dashboard');
-        } else if (role === 'company') {
+        } 
+        else if (role === 'company') {
           navigate('/user');
-        } else {
+        } 
+        else {
           setErrorMsg('Unknown user role. Access denied.');
         }
+
         setLoading(false);
-      }, 1000);
+      }, 800);
 
     } catch (error) {
       console.error('Login failed:', error.response?.data || error.message);
@@ -91,13 +101,22 @@ export default function Login() {
                   style={{ padding: 0 }}
                   disabled={loading}
                 >
-                  {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                  {showPassword ? (
+                    <VisibilityOff fontSize="small" />
+                  ) : (
+                    <Visibility fontSize="small" />
+                  )}
                 </IconButton>
               </InputGroup.Text>
             </InputGroup>
           </Form.Group>
 
-          <Button type="submit" className="w-100 btn-lg rounded-4" variant="dark" disabled={loading}>
+          <Button
+            type="submit"
+            className="w-100 btn-lg rounded-4"
+            variant="dark"
+            disabled={loading}
+          >
             {loading ? (
               <>
                 <Spinner animation="border" size="sm" className="me-2" />
