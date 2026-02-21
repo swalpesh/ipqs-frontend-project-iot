@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // Ensure react-router-dom is installed
+import { useNavigate } from 'react-router-dom';
 import { 
   Box, Grid, Stack, Card, Typography, Table, TableBody, 
   TableCell, TableHead, TableRow, Tabs, Tab, Button, IconButton, 
-  ThemeProvider, CssBaseline, createTheme, Menu, Divider
+  ThemeProvider, CssBaseline, createTheme, Menu, Divider, Select, MenuItem
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { 
@@ -18,12 +18,12 @@ const theme = createTheme({
   palette: {
     mode: 'dark',
     background: { default: '#0f172a', paper: '#1e293b' },
-    primary: { main: '#3b82f6' },  // accent-blue
-    success: { main: '#10b981' },  // accent-green
-    warning: { main: '#f59e0b' },  // accent-yellow
-    error: { main: '#ef4444' },    // accent-red
-    info: { main: '#06b6d4' },     // accent-cyan
-    secondary: { main: '#a855f7' },// accent-purple
+    primary: { main: '#3b82f6' },  
+    success: { main: '#10b981' },  
+    warning: { main: '#f59e0b' },  
+    error: { main: '#ef4444' },    
+    info: { main: '#06b6d4' },     
+    secondary: { main: '#a855f7' },
     text: { primary: '#f8fafc', secondary: '#94a3b8' },
     divider: '#334155',
   },
@@ -49,16 +49,11 @@ const theme = createTheme({
 const Header = () => {
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
-  
-  // State for the Device Status Dropdown
   const [anchorEl, setAnchorEl] = useState(null);
   const openStatus = Boolean(anchorEl);
 
-  // Live clock effect
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -67,15 +62,6 @@ const Header = () => {
     navigate('/login');
   };
 
-  const handleStatusClick = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleStatusClose = () => {
-    setAnchorEl(null);
-  };
-
-  // Format Time (HH:MM:SS) and Date (Day, DD Mon YYYY)
   const timeString = currentTime.toLocaleTimeString('en-US', { hour12: false });
   const dateString = currentTime.toLocaleDateString('en-GB', { 
     weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' 
@@ -93,21 +79,13 @@ const Header = () => {
       </Typography>
       
       <Stack direction="row" alignItems="center" spacing={3}>
-        
-        {/* NEW: Device Status Pill Dropdown */}
         <Box>
           <Button
-            onClick={handleStatusClick}
+            onClick={(e) => setAnchorEl(e.currentTarget)}
             sx={{
-              bgcolor: 'background.default',
-              borderRadius: '20px',
-              px: 2,
-              py: 0.5,
-              textTransform: 'none',
-              color: 'text.primary',
-              border: '1px solid',
-              borderColor: 'divider',
-              '&:hover': { bgcolor: alpha('#334155', 0.8) } // hover matches dark theme
+              bgcolor: 'background.default', borderRadius: '20px', px: 2, py: 0.5,
+              textTransform: 'none', color: 'text.primary', border: '1px solid', borderColor: 'divider',
+              '&:hover': { bgcolor: alpha('#334155', 0.8) }
             }}
             startIcon={<Circle sx={{ color: 'success.main', fontSize: '12px !important' }} />}
             endIcon={<KeyboardArrowDown sx={{ color: 'text.secondary' }} />}
@@ -115,67 +93,33 @@ const Header = () => {
             <Typography fontWeight="bold">Active</Typography>
           </Button>
 
-          {/* Device Info Dropdown Menu */}
           <Menu
-            anchorEl={anchorEl}
-            open={openStatus}
-            onClose={handleStatusClose}
+            anchorEl={anchorEl} open={openStatus} onClose={() => setAnchorEl(null)}
             transformOrigin={{ horizontal: 'center', vertical: 'top' }}
             anchorOrigin={{ horizontal: 'center', vertical: 'bottom' }}
-            PaperProps={{
-              sx: {
-                mt: 1,
-                minWidth: 220,
-                borderRadius: 2,
-                bgcolor: 'background.paper',
-                backgroundImage: 'none',
-                border: '1px solid',
-                borderColor: 'divider',
-                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
-              }
-            }}
+            PaperProps={{ sx: { mt: 1, minWidth: 220, borderRadius: 2, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', boxShadow: 3 } }}
           >
             <Box sx={{ px: 2.5, py: 1.5 }}>
-              <Typography variant="caption" color="text.secondary" textTransform="uppercase" letterSpacing={1} display="block" mb={0.5}>
-                Device Name
-              </Typography>
-              <Typography variant="body1" fontWeight="bold">
-                Main Factory V1
-              </Typography>
-              
+              <Typography variant="caption" color="text.secondary" textTransform="uppercase" letterSpacing={1} display="block" mb={0.5}>Device Name</Typography>
+              <Typography variant="body1" fontWeight="bold">Main Factory V1</Typography>
               <Divider sx={{ my: 1.5, borderColor: 'divider' }} />
-              
-              <Typography variant="caption" color="text.secondary" textTransform="uppercase" letterSpacing={1} display="block" mb={0.5}>
-                Device ID
-              </Typography>
-              <Typography variant="body2" fontFamily="monospace" color="primary.main" fontWeight="bold">
-                DEV-8X92-PWR
-              </Typography>
+              <Typography variant="caption" color="text.secondary" textTransform="uppercase" letterSpacing={1} display="block" mb={0.5}>Device ID</Typography>
+              <Typography variant="body2" fontFamily="monospace" color="primary.main" fontWeight="bold">DEV-8X92-PWR</Typography>
             </Box>
           </Menu>
         </Box>
 
-        {/* EXISTING: Network Connection Status */}
         <Stack direction="row" alignItems="center" spacing={1} color="success.main">
           <SignalCellularAlt />
           <Typography fontWeight="bold">CONNECTED</Typography>
         </Stack>
 
-        {/* Live Clock */}
         <Box textAlign="right" sx={{ minWidth: 120 }}>
           <Typography variant="body1" fontWeight="bold">{timeString}</Typography>
           <Typography variant="caption" color="text.secondary">{dateString}</Typography>
         </Box>
         
-        {/* Logout Button */}
-        <Button 
-          variant="outlined" 
-          color="error" 
-          size="small" 
-          endIcon={<Logout />}
-          onClick={handleLogout}
-          sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
-        >
+        <Button variant="outlined" color="error" size="small" endIcon={<Logout />} onClick={handleLogout} sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2 }}>
           Logout
         </Button>
       </Stack>
@@ -186,9 +130,7 @@ const Header = () => {
 const MetricBox = ({ title, value, unit, color }) => (
   <Box sx={{ p: 1.5, borderRadius: 2, textAlign: 'center', bgcolor: alpha(color, 0.1), border: `1px solid ${color}` }}>
     <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" mb={0.5}>{title}</Typography>
-    <Typography variant="h5" fontWeight="bold" color="text.primary">
-      {value} <Typography component="span" variant="body2" color="text.secondary">{unit}</Typography>
-    </Typography>
+    <Typography variant="h5" fontWeight="bold" color="text.primary">{value} <Typography component="span" variant="body2" color="text.secondary">{unit}</Typography></Typography>
   </Box>
 );
 
@@ -218,9 +160,9 @@ const PhaseParameters = () => (
         </TableHead>
         <TableBody>
           {[
-            { v: 240, i: 118, kw: 150.2, kvar: 50.1, kva: 158.3, color: '#ef4444' }, // Red
-            { v: 238, i: 115, kw: 148.9, kvar: 48.5, kva: 156.6, color: '#f59e0b' }, // Yellow
-            { v: 242, i: 122, kw: 151.4, kvar: 51.2, kva: 159.8, color: '#3b82f6' }, // Blue
+            { v: 240, i: 118, kw: 150.2, kvar: 50.1, kva: 158.3, color: '#ef4444' },
+            { v: 238, i: 115, kw: 148.9, kvar: 48.5, kva: 156.6, color: '#f59e0b' },
+            { v: 242, i: 122, kw: 151.4, kvar: 51.2, kva: 159.8, color: '#3b82f6' },
           ].map((row, index) => (
             <TableRow key={index} sx={{ '& td': { bgcolor: alpha(row.color, 0.08), borderBottom: 'none', py: 2, fontSize: '1.2rem', fontWeight: 600, textAlign: 'center' } }}>
               <TableCell sx={{ borderLeft: `6px solid ${row.color}`, borderTopLeftRadius: 8, borderBottomLeftRadius: 8 }}>{row.v}</TableCell>
@@ -250,7 +192,6 @@ const SystemPowerFactor = () => (
       <Speed color="success" />
     </Stack>
     <Box sx={{ display: 'flex', justifyContent: 'center', my: 'auto', py: 2 }}>
-      {/* CSS-in-JS Gauge */}
       <Box sx={{ width: 180, height: 180, borderRadius: '50%', background: 'conic-gradient(#10b981 98%, #334155 0)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', '&::after': { content: '""', position: 'absolute', width: 'calc(100% - 20px)', height: 'calc(100% - 20px)', bgcolor: 'background.paper', borderRadius: '50%' } }}>
         <Box sx={{ position: 'relative', zIndex: 2, textAlign: 'center' }}>
           <Typography variant="h3" fontWeight="bold">0.980</Typography>
@@ -289,14 +230,37 @@ const TotalEnergy = () => (
 );
 
 const MonthlyAnalysis = () => {
-  const chartData = [
-    { month: 'Jan', val: '0.955', height: '38%' }, { month: 'Feb', val: '0.962', height: '45%' },
-    { month: 'Mar', val: '0.968', height: '52%' }, { month: 'Apr', val: '0.976', height: '60%' },
-    { month: 'May', val: '0.980', height: '65%' }, { month: 'Jun', val: '0.985', height: '72%' },
-    { month: 'Jul', val: '0.982', height: '68%' }, { month: 'Aug', val: '0.988', height: '76%' },
-    { month: 'Sep', val: '0.992', height: '84%' }, { month: 'Oct', val: '0.995', height: '89%' },
-    { month: 'Nov', val: '0.997', height: '94%' }, { month: 'Dec', val: '0.999', height: '98%', highlight: true },
-  ];
+  const [selectedYear, setSelectedYear] = useState('2026');
+
+  const yearlyData = {
+    '2024': [
+      { month: 'Jan', val: '0.940', height: '30%' }, { month: 'Feb', val: '0.945', height: '35%' },
+      { month: 'Mar', val: '0.950', height: '40%' }, { month: 'Apr', val: '0.955', height: '45%' },
+      { month: 'May', val: '0.960', height: '50%' }, { month: 'Jun', val: '0.965', height: '55%' },
+      { month: 'Jul', val: '0.962', height: '52%' }, { month: 'Aug', val: '0.970', height: '60%' },
+      { month: 'Sep', val: '0.975', height: '65%' }, { month: 'Oct', val: '0.980', height: '70%' },
+      { month: 'Nov', val: '0.985', height: '75%' }, { month: 'Dec', val: '0.990', height: '80%', highlight: true },
+    ],
+    '2025': [
+      { month: 'Jan', val: '0.955', height: '38%' }, { month: 'Feb', val: '0.962', height: '45%' },
+      { month: 'Mar', val: '0.968', height: '52%' }, { month: 'Apr', val: '0.976', height: '60%' },
+      { month: 'May', val: '0.980', height: '65%' }, { month: 'Jun', val: '0.985', height: '72%' },
+      { month: 'Jul', val: '0.982', height: '68%' }, { month: 'Aug', val: '0.988', height: '76%' },
+      { month: 'Sep', val: '0.992', height: '84%' }, { month: 'Oct', val: '0.995', height: '89%' },
+      { month: 'Nov', val: '0.997', height: '94%' }, { month: 'Dec', val: '0.999', height: '98%', highlight: true },
+    ],
+    '2026': [
+      { month: 'Jan', val: '0.965', height: '48%' }, { month: 'Feb', val: '0.970', height: '55%' },
+      { month: 'Mar', val: '0.975', height: '60%' }, { month: 'Apr', val: '0.982', height: '68%' },
+      { month: 'May', val: '0.985', height: '72%' }, { month: 'Jun', val: '0.988', height: '78%' },
+      { month: 'Jul', val: '0.986', height: '75%' }, { month: 'Aug', val: '0.992', height: '85%' },
+      { month: 'Sep', val: '0.995', height: '90%' }, { month: 'Oct', val: '0.998', height: '95%' },
+      { month: 'Nov', val: '0.999', height: '98%' }, { month: 'Dec', val: '1.000', height: '100%', highlight: true },
+    ]
+  };
+
+  const chartData = yearlyData[selectedYear];
+
   return (
     <Card sx={{ p: 3, mt: 3 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={4}>
@@ -305,12 +269,25 @@ const MonthlyAnalysis = () => {
           <Typography variant="caption" color="text.secondary">Efficiency tracking Jan - Dec</Typography>
         </Box>
         <Stack direction="row" spacing={3} alignItems="center">
+          <Select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(e.target.value)}
+            size="small"
+            sx={{
+              height: 32, fontSize: '0.875rem', bgcolor: 'background.default', color: 'text.secondary',
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: 'divider' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' }
+            }}
+          >
+            <MenuItem value="2024">2024</MenuItem>
+            <MenuItem value="2025">2025</MenuItem>
+            <MenuItem value="2026">2026</MenuItem>
+          </Select>
           <Typography variant="body2" color="primary.main" display="flex" alignItems="center" gap={1}><BarChart fontSize="small" /> PF Trend</Typography>
           <Typography variant="body2" color="success.main">— 0.950 Threshold</Typography>
         </Stack>
       </Stack>
       
-      {/* 3D Cylinder Chart Container */}
       <Box sx={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', height: 220, position: 'relative', pb: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
         <Box sx={{ position: 'absolute', bottom: '30%', width: '100%', borderTop: '1px dashed', borderColor: 'success.main', opacity: 0.6, zIndex: 1 }} />
         <Typography variant="caption" sx={{ position: 'absolute', right: 0, bottom: 'calc(30% + 5px)', color: 'success.main', zIndex: 1, fontWeight: 600 }}>Target 0.950</Typography>
@@ -320,15 +297,13 @@ const MonthlyAnalysis = () => {
             <Typography variant="body2" fontWeight="bold" sx={{ mb: 1.5, color: item.highlight ? 'success.main' : 'text.primary', textShadow: '0 2px 5px rgba(0,0,0,0.8)' }}>
               {item.val}
             </Typography>
-            
-            {/* The 3D Cylinder built with CSS gradients */}
             <Box sx={{ 
               width: 40, height: item.height, 
               background: 'linear-gradient(to right, #1e3a8a 0%, #3b82f6 35%, #93c5fd 65%, #1e3a8a 100%)', 
               borderRadius: '0 0 4px 4px', position: 'relative', boxShadow: '8px 5px 15px rgba(0,0,0,0.3)', 
-              '&::before': { content: '""', position: 'absolute', top: -8, left: 0, width: '100%', height: 16, borderRadius: '50%', bgcolor: '#bfdbfe', boxShadow: 'inset 0 -2px 6px rgba(0,0,0,0.4)' } 
+              '&::before': { content: '""', position: 'absolute', top: -8, left: 0, width: '100%', height: 16, borderRadius: '50%', bgcolor: '#bfdbfe', boxShadow: 'inset 0 -2px 6px rgba(0,0,0,0.4)' },
+              transition: 'height 0.5s ease-in-out'
             }} />
-            
             <Typography variant="caption" color="text.secondary" fontWeight={600} textTransform="uppercase" sx={{ position: 'absolute', bottom: -28 }}>
               {item.month}
             </Typography>
@@ -358,40 +333,134 @@ const SummaryBox = ({ title, energy, pf, progress }) => (
   </Box>
 );
 
+// ==========================================
+// 4. UPDATED: REAL-TIME PARAMETERS GRAPH
+// ==========================================
 const RealTimeParameters = () => {
   const [tab, setTab] = useState(0);
+  
+  // State for the Parameters Dropdown Filter
+  const [paramFilter, setParamFilter] = useState('All');
+  const [anchorElParam, setAnchorElParam] = useState(null);
+  const openParam = Boolean(anchorElParam);
+
+  // Hardcoded line generation data for demonstration purposes
+  const graphData = {
+    0: { // Today
+      labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '23:59'],
+      paths: {
+        Voltage: { color: '#f59e0b', d: "M0,40 Q300,35 700,50 T1400,45" },
+        kWh:     { color: '#3b82f6', d: "M0,80 Q250,60 500,90 T1000,75 T1400,85" },
+        Current: { color: '#ef4444', d: "M0,110 Q400,125 700,105 T1400,115" },
+        kVArh:   { color: '#10b981', d: "M0,135 Q300,130 600,140 T1000,135 T1400,140" },
+      }
+    },
+    1: { // Weekly
+      labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+      paths: {
+        Voltage: { color: '#f59e0b', d: "M0,50 Q300,60 700,40 T1400,55" },
+        kWh:     { color: '#3b82f6', d: "M0,90 Q200,110 400,70 T800,80 T1400,60" },
+        Current: { color: '#ef4444', d: "M0,120 Q400,100 700,115 T1400,110" },
+        kVArh:   { color: '#10b981', d: "M0,140 Q300,135 600,145 T1000,135 T1400,145" },
+      }
+    },
+    2: { // Monthly
+      labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'],
+      paths: {
+        Voltage: { color: '#f59e0b', d: "M0,45 Q350,30 700,55 T1400,40" },
+        kWh:     { color: '#3b82f6', d: "M0,75 Q350,95 700,65 T1400,80" },
+        Current: { color: '#ef4444', d: "M0,105 Q350,120 700,100 T1400,125" },
+        kVArh:   { color: '#10b981', d: "M0,130 Q350,145 700,135 T1400,140" },
+      }
+    },
+    3: { // Yearly
+      labels: ['Jan', 'Mar', 'May', 'Jul', 'Sep', 'Nov', 'Dec'],
+      paths: {
+        Voltage: { color: '#f59e0b', d: "M0,35 Q300,50 700,30 T1400,45" },
+        kWh:     { color: '#3b82f6', d: "M0,65 Q250,85 600,60 T1000,90 T1400,70" },
+        Current: { color: '#ef4444', d: "M0,115 Q400,105 700,125 T1400,100" },
+        kVArh:   { color: '#10b981', d: "M0,145 Q300,130 600,140 T1000,135 T1400,140" },
+      }
+    }
+  };
+
+  const currentGraph = graphData[tab];
+
+  const handleParamClick = (event) => setAnchorElParam(event.currentTarget);
+  const handleParamSelect = (value) => {
+    setParamFilter(value);
+    setAnchorElParam(null);
+  };
+
   return (
     <Card sx={{ p: 3, mt: 3, flex: 1, display: 'flex', flexDirection: 'column' }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" borderBottom="1px solid" borderColor="divider" pb={1} mb={3}>
+        
+        {/* Time Span Tabs */}
         <Tabs value={tab} onChange={(e, v) => setTab(v)} textColor="primary" indicatorColor="primary">
           <Tab label="Today" sx={{ textTransform: 'none', fontWeight: 500 }} />
           <Tab label="Weekly" sx={{ textTransform: 'none', fontWeight: 500 }} />
           <Tab label="Monthly" sx={{ textTransform: 'none', fontWeight: 500 }} />
           <Tab label="Yearly" sx={{ textTransform: 'none', fontWeight: 500 }} />
         </Tabs>
+
         <Stack direction="row" spacing={1}>
-          <Button variant="outlined" color="inherit" sx={{ color: 'text.secondary', borderColor: 'divider', textTransform: 'none' }}>Parameters</Button>
+          {/* NEW: Parameters Dropdown */}
+          <Button 
+            variant="outlined" 
+            color="inherit" 
+            onClick={handleParamClick}
+            endIcon={<KeyboardArrowDown />}
+            sx={{ color: 'text.secondary', borderColor: 'divider', textTransform: 'none' }}
+          >
+            {paramFilter === 'All' ? 'Parameters' : paramFilter}
+          </Button>
+          
+          <Menu anchorEl={anchorElParam} open={openParam} onClose={() => setAnchorElParam(null)}>
+            {['All', 'kWh', 'kVArh', 'Voltage', 'Current'].map(opt => (
+              <MenuItem key={opt} onClick={() => handleParamSelect(opt)}>{opt}</MenuItem>
+            ))}
+          </Menu>
+
           <IconButton sx={{ bgcolor: 'divider', color: 'white', borderRadius: 1 }}><Download fontSize="small" /></IconButton>
         </Stack>
       </Stack>
       
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="subtitle2" fontWeight="bold" textTransform="uppercase" letterSpacing={1}>REAL-TIME PARAMETERS (00:00 - 23:59)</Typography>
+        <Typography variant="subtitle2" fontWeight="bold" textTransform="uppercase" letterSpacing={1}>REAL-TIME PARAMETERS</Typography>
         <Stack direction="row" spacing={2} alignItems="center">
           {[{l: 'kWh', c: 'primary.main'}, {l: 'kVArh', c: 'success.main'}, {l: 'Voltage', c: 'warning.main'}, {l: 'Current', c: 'error.main'}].map(item => (
-            <Typography key={item.l} variant="caption" color={item.c} display="flex" alignItems="center" gap={0.5}><Circle sx={{ fontSize: 8 }} /> {item.l}</Typography>
+            <Typography key={item.l} variant="caption" color={item.c} display="flex" alignItems="center" gap={0.5}>
+              <Circle sx={{ fontSize: 8 }} /> {item.l}
+            </Typography>
           ))}
         </Stack>
       </Stack>
       
-      <Box sx={{ height: 150, borderLeft: '1px solid', borderBottom: '1px solid', borderColor: 'divider', mt: 2 }}>
-        <svg width="100%" height="100%" preserveAspectRatio="none">
-          <path d="M0,50 Q300,60 700,40 T1400,60" fill="none" stroke="#f59e0b" strokeWidth="2"/>
-          <path d="M0,120 Q400,90 700,100 T1400,130" fill="none" stroke="#ef4444" strokeWidth="2"/>
+      {/* SVG Graph rendering matching paths with colors and handling filters */}
+      <Box sx={{ height: 180, borderLeft: '1px solid', borderBottom: '1px solid', borderColor: 'divider', mt: 2 }}>
+        <svg width="100%" height="100%" viewBox="0 0 1400 150" preserveAspectRatio="none">
+          {Object.keys(currentGraph.paths).map(key => {
+            // Hide path if it doesn't match the selected filter (and filter isn't 'All')
+            if (paramFilter !== 'All' && paramFilter !== key) return null;
+            
+            return (
+              <path 
+                key={key} 
+                d={currentGraph.paths[key].d} 
+                fill="none" 
+                stroke={currentGraph.paths[key].color} 
+                strokeWidth="2.5"
+                style={{ transition: 'd 0.5s ease-in-out, stroke-opacity 0.3s' }} // Smooth transition between tabs
+              />
+            )
+          })}
         </svg>
       </Box>
+
+      {/* Dynamic X-Axis Labels based on Tab */}
       <Stack direction="row" justifyContent="space-between" mt={1} pl={1}>
-        {['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '23:59'].map(t => (
+        {currentGraph.labels.map(t => (
           <Typography key={t} variant="caption" color="text.secondary">{t}</Typography>
         ))}
       </Stack>
@@ -406,38 +475,22 @@ const RealTimeParameters = () => {
 };
 
 // ==========================================
-// 3. MAIN DASHBOARD LAYOUT
+// 5. MAIN DASHBOARD LAYOUT
 // ==========================================
 const Dashboard = () => (
   <Box
     sx={{
-      minHeight: '100vh',
-      width: '100%',
-      p: 3,
-      backgroundImage: `
-        linear-gradient(rgba(59,130,246,0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(59,130,246,0.05) 1px, transparent 1px)
-      `,
+      minHeight: '100vh', width: '100%', p: 3,
+      backgroundImage: `linear-gradient(rgba(59,130,246,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.05) 1px, transparent 1px)`,
       backgroundSize: '30px 30px'
     }}
   >
     <Header />
 
     <Grid container spacing={3} sx={{ width: '100%', margin: 0 }}>
-      {/* LEFT LARGE CARD */}
-      <Grid item xs={12} lg={7}>
-        <PhaseParameters />
-      </Grid>
-
-      {/* MIDDLE CARD */}
-      <Grid item xs={12} md={6} lg={3}>
-        <SystemPowerFactor />
-      </Grid>
-
-      {/* RIGHT CARD */}
-      <Grid item xs={12} md={6} lg={2}>
-        <TotalEnergy />
-      </Grid>
+      <Grid item xs={12} lg={7}><PhaseParameters /></Grid>
+      <Grid item xs={12} md={6} lg={3}><SystemPowerFactor /></Grid>
+      <Grid item xs={12} md={6} lg={2}><TotalEnergy /></Grid>
     </Grid>
 
     <MonthlyAnalysis />
@@ -448,12 +501,9 @@ const Dashboard = () => (
 export default function TataPowerDashboard() {
   const navigate = useNavigate();
 
-  // Authentication protection: redirect to login if no token is found
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/login');
-    }
+    if (!token) navigate('/login');
   }, [navigate]);
 
   return (
