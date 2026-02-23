@@ -39,12 +39,51 @@ import Alldevicesadmin from './pages/admin/Adminalldevices';
 import Adminalerts from './pages/admin/adminalerts';
 import AdminSubscriptions from './pages/admin/AdminSubscriptions';
 
+/* ================= HELPER: CHECK IF TATA POWER USER ================= */
+// Decodes the JWT token to check the company ID, or checks the stored username
+const checkIsTataPower = () => {
+  // 1. Check Username (Set during Login)
+  const username = localStorage.getItem('username');
+  if (username === 'TataPowerJalna@2026') return true;
+
+  // 2. Check Token Payload (Persisted across reloads)
+  const token = localStorage.getItem('token');
+  if (token) {
+    try {
+      // Decode JWT payload (middle part of the token)
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      
+      const payload = JSON.parse(jsonPayload);
+      
+      // Check against your specific token keys (companyId, company_id, or company)
+      return payload.companyId === 'TataPowerLtd.' || 
+             payload.company_id === 'TataPowerLtd.' || 
+             payload.company === 'TataPowerLtd.';
+    } catch (e) {
+      console.error("Error decoding token in routing", e);
+      return false;
+    }
+  }
+  return false;
+};
+
 /* ================= PROTECTED ROUTE ================= */
 function ProtectedRoute({ children, allowedRole }) {
   const token = localStorage.getItem('token');
   const role = localStorage.getItem('role');
+  
+  const isTataPowerUser = checkIsTataPower();
 
   if (!token) return <Navigate to="/login" replace />;
+
+  // Force the Tata Power user back to their standalone dashboard if they try to access standard user routes
+  if (isTataPowerUser) {
+    return <Navigate to="/tatapower" replace />;
+  }
 
   if (allowedRole && role !== allowedRole) {
     return (
@@ -65,10 +104,12 @@ function AppContent() {
   const isAdmin = location.pathname.startsWith('/admin');
   const isLoginPage = location.pathname === '/login';
   const isWelcomePage = location.pathname === '/';
-  const isTataPowerPage = location.pathname === '/tatapower'; // ✅ NEW
+  const isTataPowerPage = location.pathname === '/tatapower';
 
   const token = localStorage.getItem('token');
   const role = localStorage.getItem('role');
+  
+  const isTataPowerUser = checkIsTataPower();
 
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 1024);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
@@ -92,10 +133,14 @@ function AppContent() {
 
   if (loading) return <FullPageLoader />;
 
-  /* 🔹 If user already logged in, prevent welcome/login */
+  /* 🔹 Initial Load Redirects */
   if ((isWelcomePage || isLoginPage) && token) {
     if (role === 'admin') return <Navigate to="/admin/dashboard" replace />;
-    if (role === 'company') return <Navigate to="/user" replace />;
+    if (role === 'company') {
+      // Direct Tata Power to their specific page, standard companies to /user
+      if (isTataPowerUser) return <Navigate to="/tatapower" replace />;
+      return <Navigate to="/user" replace />;
+    }
   }
 
   /* 🔹 Welcome Page */

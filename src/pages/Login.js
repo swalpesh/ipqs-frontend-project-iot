@@ -34,8 +34,10 @@ export default function Login() {
       const response = await axios.post(endpoint, { username, password });
       const { token, role } = response.data;
 
+      // Save credentials and identifiers to local storage
       localStorage.setItem('token', token);
       localStorage.setItem('role', role);
+      localStorage.setItem('username', username); // ✅ NEW: Crucial for App.js routing
 
       setTimeout(() => {
         /* 🔥 SPECIAL REDIRECTION FOR TATA POWER */
