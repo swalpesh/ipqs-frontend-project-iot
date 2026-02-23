@@ -8,14 +8,18 @@ import {
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { 
-  Bolt, SignalCellularAlt, ElectricalServices, Speed, TrendingUp, 
+  SignalCellularAlt, ElectricalServices, Speed, TrendingUp, 
   CallMade, BarChart, Download, Circle, Logout, KeyboardArrowDown
 } from '@mui/icons-material';
+
+// Import Logos (Ensure these paths match your project structure)
+import ipqsLogo from '../assets/logo.png'; 
+import tataLogo from '../assets/tata_power.png'; // Add the Tata Power logo to your assets folder
 
 // ==========================================
 // 1. SOCKET CONNECTION
 // ==========================================
-const socket = io("https://ipqsoms.com", {
+const socket = io(process.env.REACT_APP_API_BASE_URL || "http://localhost:4000", {
   path: "/socket.io",
   transports: ["websocket"],
 });
@@ -99,15 +103,27 @@ const Header = ({ liveData }) => {
       
       {/* ================= DESKTOP VIEW ================= */}
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ display: { xs: 'none', md: 'flex' } }}>
-        <Stack direction="row" alignItems="center" spacing={1.5}>
-          <Bolt color="primary" sx={{ fontSize: 32 }} />
-          <Typography variant="h5" fontWeight="bold">TataPower</Typography>
+        
+        {/* Left Side: Tata Power Logo & Titles */}
+        <Stack direction="row" alignItems="center" spacing={2}>
+          <img src={tataLogo} alt="Tata Power" style={{ height: '45px', objectFit: 'contain' }} />
+          <Box>
+            <Typography variant="h5" fontWeight="bold" lineHeight={1.2}>TataPower</Typography>
+            <Typography variant="caption" color="text.secondary" fontWeight={500}>
+              TP Kirnali Ltd. 100 MW Solar Plant, Partur
+            </Typography>
+          </Box>
         </Stack>
         
-        <Typography variant="subtitle1" fontWeight={600} letterSpacing={2} color="text.secondary">
-          ENERGY MONITORING DASHBOARD
-        </Typography>
+        {/* Center: IPQS Logo & Dashboard Title */}
+        <Stack direction="row" alignItems="center" spacing={2}>
+          <img src={ipqsLogo} alt="IPQS" style={{ height: '30px', objectFit: 'contain' }} />
+          <Typography variant="subtitle1" fontWeight={600} letterSpacing={2} color="text.secondary">
+            ENERGY MONITORING DASHBOARD
+          </Typography>
+        </Stack>
         
+        {/* Right Side: Status, Network, Time, Logout */}
         <Stack direction="row" alignItems="center" spacing={3}>
           <Box>
             <Button
@@ -142,10 +158,16 @@ const Header = ({ liveData }) => {
 
       {/* ================= MOBILE VIEW ================= */}
       <Stack spacing={2.5} sx={{ display: { xs: 'flex', md: 'none' } }}>
+        {/* Row 1: Logo & Logout */}
         <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <Bolt color="primary" sx={{ fontSize: 28 }} />
-            <Typography variant="h6" fontWeight="bold">TataPower</Typography>
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <img src={tataLogo} alt="Tata Power" style={{ height: '36px', objectFit: 'contain' }} />
+            <Box>
+              <Typography variant="h6" fontWeight="bold" lineHeight={1.2}>TataPower</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                TP Kirnali Ltd. 100 MW Solar Plant, Partur
+              </Typography>
+            </Box>
           </Stack>
           <IconButton 
             variant="outlined" 
@@ -158,6 +180,15 @@ const Header = ({ liveData }) => {
           </IconButton>
         </Stack>
 
+        {/* Row 2: IPQS Logo & Title (Mobile) */}
+        <Stack direction="row" alignItems="center" spacing={1.5} sx={{ bgcolor: 'background.default', p: 1, borderRadius: 2 }}>
+          <img src={ipqsLogo} alt="IPQS" style={{ height: '20px', objectFit: 'contain' }} />
+          <Typography variant="caption" fontWeight={600} letterSpacing={1} color="text.secondary">
+            ENERGY MONITORING DASHBOARD
+          </Typography>
+        </Stack>
+
+        {/* Row 3: Device Status & Network */}
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Button
             onClick={(e) => setAnchorEl(e.currentTarget)}
@@ -179,6 +210,7 @@ const Header = ({ liveData }) => {
         </Stack>
       </Stack>
 
+      {/* Shared Dropdown Menu */}
       <Menu
         anchorEl={anchorEl} open={openStatus} onClose={() => setAnchorEl(null)}
         transformOrigin={{ horizontal: 'center', vertical: 'top' }}
@@ -303,14 +335,7 @@ const TotalEnergy = ({ data }) => (
     </Stack>
     <Stack spacing={2.5} sx={{ flex: 1, height: '100%' }}>
       <EnergyBox title="ACTIVE ENERGY" value={data?.kwh ?? '--'} unit="kWh" color="#3b82f6" />
-      <EnergyBox title="APPARENT ENERGY" value={data?.kvah ?? '--'} unit="kVAh" color="#06b6d4" />
-      
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', p: 2.5, borderRadius: 2, textAlign: 'center', bgcolor: alpha('#a855f7', 0.08), border: `1px solid ${alpha('#a855f7', 0.4)}` }}>
-        <Typography variant="body2" color="text.secondary" fontWeight={600} letterSpacing={1} mb={1.5}>REACTIVE ENERGY</Typography>
-        <Typography variant="h5" fontWeight="bold">{data?.kvarhlag ?? '--'} <Typography component="span" variant="body2" color="text.secondary">kVArh (Lag)</Typography></Typography>
-        <Box sx={{ my: 0.5, borderBottom: '1px dashed', borderColor: alpha('#a855f7', 0.3) }} />
-        <Typography variant="h5" fontWeight="bold">{data?.kvarhlead ?? '--'} <Typography component="span" variant="body2" color="text.secondary">kVArh (Lead)</Typography></Typography>
-      </Box>
+      <EnergyBox title="REACTIVE ENERGY" value={data?.kvarh ?? '--'} unit="kVArh" color="#a855f7" />
     </Stack>
   </Card>
 );
@@ -322,7 +347,6 @@ const MonthlyAnalysis = () => {
   const [selectedYear, setSelectedYear] = useState('2026');
   const [apiData, setApiData] = useState([]);
 
-  // Fetch Monthly API Data
   useEffect(() => {
     const fetchMonthlyData = async () => {
       try {
@@ -336,7 +360,7 @@ const MonthlyAnalysis = () => {
         
         if (response.ok) {
           const data = await response.json();
-          setApiData(data); // e.g. [{ month: "2026-01", power_factor: 0.92 }, ...]
+          setApiData(data);
         } else {
           console.error("Failed to fetch monthly data");
         }
@@ -350,17 +374,13 @@ const MonthlyAnalysis = () => {
 
   const monthsLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-  // Map the API data array to chart components 
   const chartData = monthsLabels.map((monthStr, index) => {
-    // Generate the matching "YYYY-MM" target string
     const monthNum = (index + 1).toString().padStart(2, '0');
     const targetMonth = `${selectedYear}-${monthNum}`;
     
-    // Find matching month in API data
     const foundData = apiData.find(d => d.month === targetMonth);
     const pfValue = foundData ? parseFloat(foundData.power_factor || 0) : 0;
     
-    // Determine the height % visually for cylinder. Max 100%, Min 5% so zero values don't entirely disappear
     const heightPercent = pfValue > 0 ? Math.min(100, Math.max(5, pfValue * 100)) : 5; 
 
     return {
@@ -373,13 +393,7 @@ const MonthlyAnalysis = () => {
 
   return (
     <Card sx={{ p: 3, mt: 3 }}>
-      <Stack 
-        direction={{ xs: 'column', md: 'row' }} 
-        justifyContent="space-between" 
-        alignItems={{ xs: 'flex-start', md: 'flex-start' }} 
-        spacing={2}
-        mb={4}
-      >
+      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'flex-start' }} spacing={2} mb={4}>
         <Box>
           <Typography variant="h6" fontWeight="bold">Monthly Power Factor Analysis</Typography>
           <Typography variant="caption" color="text.secondary">Efficiency tracking Jan - Dec</Typography>
@@ -408,10 +422,7 @@ const MonthlyAnalysis = () => {
       </Stack>
       
       <Box sx={{ width: '100%', overflowX: 'auto', pb: 1, WebkitOverflowScrolling: 'touch' }}>
-        <Box sx={{ 
-          minWidth: 650, 
-          display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', height: 220, position: 'relative', pb: 3, borderBottom: '1px solid', borderColor: 'divider' 
-        }}>
+        <Box sx={{ minWidth: 650, display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end', height: 220, position: 'relative', pb: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
           <Box sx={{ position: 'absolute', bottom: '30%', width: '100%', borderTop: '1px dashed', borderColor: 'success.main', opacity: 0.6, zIndex: 1 }} />
           <Typography variant="caption" sx={{ position: 'absolute', right: 0, bottom: 'calc(30% + 5px)', color: 'success.main', zIndex: 1, fontWeight: 600 }}>Target 0.950</Typography>
           
@@ -630,7 +641,7 @@ const Dashboard = () => {
       </Grid>
 
       <MonthlyAnalysis />
-      <RealTimeParameters />
+      {/* <RealTimeParameters /> */}
     </Box>
   );
 };
