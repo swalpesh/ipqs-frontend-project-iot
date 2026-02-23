@@ -14,15 +14,26 @@ import {
 
 // Import Logos (Ensure these paths match your project structure)
 import ipqsLogo from '../assets/logo.png'; 
-import tataLogo from '../assets/tata_power.png'; // Add the Tata Power logo to your assets folder
+import tataLogo from '../assets/tata_power.png'; 
 
 // ==========================================
-// 1. SOCKET CONNECTION
+// 1. SOCKET CONNECTION & UTILITIES
 // ==========================================
-const socket = io(process.env.REACT_APP_API_BASE_URL || "http://localhost:4000", {
+const socket = io("https://ipqsoms.com", {
   path: "/socket.io",
   transports: ["websocket"],
 });
+
+// Helper functions for unit conversion
+const formatVoltageToKV = (volts) => {
+  if (volts === undefined || volts === null || isNaN(volts) || volts === '') return '--';
+  return (parseFloat(volts) / 1000).toFixed(2);
+};
+
+const formatToMega = (val) => {
+  if (val === undefined || val === null || isNaN(val) || val === '') return '--';
+  return (parseFloat(val) / 1000).toFixed(2);
+};
 
 // ==========================================
 // 2. THEME DEFINITION
@@ -237,49 +248,51 @@ const MetricBox = ({ title, value, unit, color }) => (
   </Box>
 );
 
-const PhaseParameters = ({ data }) => (
-  <Card sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
-    <Stack direction="row" justifyContent="space-between" mb={3}>
-      <Typography variant="subtitle1" color="text.secondary" fontWeight={600} textTransform="uppercase" letterSpacing={1}>Phase Electrical Parameters</Typography>
-      <ElectricalServices color="warning" />
-    </Stack>
-    <Grid container spacing={1.5} mb={3}>
-      <Grid size={{ xs: 12, sm: 2.4 }}><MetricBox title="AVG VOLTAGE" value={data?.voltage ?? '--'} unit="V" color="#3b82f6" /></Grid>
-      <Grid size={{ xs: 12, sm: 2.4 }}><MetricBox title="AVG CURRENT" value={data?.current ?? '--'} unit="A" color="#10b981" /></Grid>
-      <Grid size={{ xs: 12, sm: 2.4 }}><MetricBox title="ACTIVE PWR" value={data?.kw ?? '--'} unit="kW" color="#f59e0b" /></Grid>
-      <Grid size={{ xs: 12, sm: 2.4 }}><MetricBox title="REACTIVE PWR" value={data?.kvar ?? '--'} unit="kVAr" color="#a855f7" /></Grid>
-      <Grid size={{ xs: 12, sm: 2.4 }}><MetricBox title="APPARENT PWR" value={data?.kva ?? '--'} unit="kVA" color="#06b6d4" /></Grid>
-    </Grid>
-    <Box sx={{ overflowX: 'auto', mt: 'auto' }}>
-      <Table sx={{ minWidth: 500, borderSpacing: '0 15px', borderCollapse: 'separate' }}>
-        <TableHead>
-          <TableRow>
-            {['Voltage (V)', 'Current (A)', 'Active Pwr (kW)', 'Reactive (kVAr)', 'Apparent (kVA)'].map((head) => (
-              <TableCell key={head} align="center" sx={{ color: 'text.secondary', fontWeight: 600, borderBottom: 'none', py: 0 }}>
-                {head.split(' ')[0]} <br/> <Typography variant="caption" fontWeight={400}>{head.split(' ')[1]}</Typography>
-              </TableCell>
-            ))}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {[
-            { v: data?.voltage_r ?? '--', i: data?.current_r ?? '--', kw: data?.kw_r ?? '--', kvar: data?.kvar_r ?? '--', kva: data?.kva_r ?? '--', color: '#ef4444' },
-            { v: data?.voltage_y ?? '--', i: data?.current_y ?? '--', kw: data?.kw_y ?? '--', kvar: data?.kvar_y ?? '--', kva: data?.kva_y ?? '--', color: '#f59e0b' },
-            { v: data?.voltage_b ?? '--', i: data?.current_b ?? '--', kw: data?.kw_b ?? '--', kvar: data?.kvar_b ?? '--', kva: data?.kva_b ?? '--', color: '#3b82f6' },
-          ].map((row, index) => (
-            <TableRow key={index} sx={{ '& td': { bgcolor: alpha(row.color, 0.08), borderBottom: 'none', py: 2, fontSize: '1.2rem', fontWeight: 600, textAlign: 'center' } }}>
-              <TableCell sx={{ borderLeft: `6px solid ${row.color}`, borderTopLeftRadius: 8, borderBottomLeftRadius: 8 }}>{row.v}</TableCell>
-              <TableCell>{row.i}</TableCell>
-              <TableCell>{row.kw}</TableCell>
-              <TableCell>{row.kvar}</TableCell>
-              <TableCell sx={{ borderTopRightRadius: 8, borderBottomRightRadius: 8 }}>{row.kva}</TableCell>
+const PhaseParameters = ({ data }) => {
+  return (
+    <Card sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Stack direction="row" justifyContent="space-between" mb={3}>
+        <Typography variant="subtitle1" color="text.secondary" fontWeight={600} textTransform="uppercase" letterSpacing={1}>Phase Electrical Parameters</Typography>
+        <ElectricalServices color="warning" />
+      </Stack>
+      <Grid container spacing={1.5} mb={3}>
+        <Grid size={{ xs: 12, sm: 2.4 }}><MetricBox title="AVG VOLTAGE" value={formatVoltageToKV(data?.voltage)} unit="kV" color="#3b82f6" /></Grid>
+        <Grid size={{ xs: 12, sm: 2.4 }}><MetricBox title="AVG CURRENT" value={data?.current ?? '--'} unit="A" color="#10b981" /></Grid>
+        <Grid size={{ xs: 12, sm: 2.4 }}><MetricBox title="ACTIVE PWR" value={formatToMega(data?.kw)} unit="MW" color="#f59e0b" /></Grid>
+        <Grid size={{ xs: 12, sm: 2.4 }}><MetricBox title="REACTIVE PWR" value={formatToMega(data?.kvar)} unit="MVAr" color="#a855f7" /></Grid>
+        <Grid size={{ xs: 12, sm: 2.4 }}><MetricBox title="APPARENT PWR" value={formatToMega(data?.kva)} unit="MVA" color="#06b6d4" /></Grid>
+      </Grid>
+      <Box sx={{ overflowX: 'auto', mt: 'auto' }}>
+        <Table sx={{ minWidth: 500, borderSpacing: '0 15px', borderCollapse: 'separate' }}>
+          <TableHead>
+            <TableRow>
+              {['Voltage (kV)', 'Current (A)', 'Active Pwr (MW)', 'Reactive (MVAr)', 'Apparent (MVA)'].map((head) => (
+                <TableCell key={head} align="center" sx={{ color: 'text.secondary', fontWeight: 600, borderBottom: 'none', py: 0 }}>
+                  {head.split(' ')[0]} <br/> <Typography variant="caption" fontWeight={400}>{head.split(' ')[1]}</Typography>
+                </TableCell>
+              ))}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </Box>
-  </Card>
-);
+          </TableHead>
+          <TableBody>
+            {[
+              { v: formatVoltageToKV(data?.voltage_r), i: data?.current_r ?? '--', kw: formatToMega(data?.kw_r), kvar: formatToMega(data?.kvar_r), kva: formatToMega(data?.kva_r), color: '#ef4444' },
+              { v: formatVoltageToKV(data?.voltage_y), i: data?.current_y ?? '--', kw: formatToMega(data?.kw_y), kvar: formatToMega(data?.kvar_y), kva: formatToMega(data?.kva_y), color: '#f59e0b' },
+              { v: formatVoltageToKV(data?.voltage_b), i: data?.current_b ?? '--', kw: formatToMega(data?.kw_b), kvar: formatToMega(data?.kvar_b), kva: formatToMega(data?.kva_b), color: '#3b82f6' },
+            ].map((row, index) => (
+              <TableRow key={index} sx={{ '& td': { bgcolor: alpha(row.color, 0.08), borderBottom: 'none', py: 2, fontSize: '1.2rem', fontWeight: 600, textAlign: 'center' } }}>
+                <TableCell sx={{ borderLeft: `6px solid ${row.color}`, borderTopLeftRadius: 8, borderBottomLeftRadius: 8 }}>{row.v}</TableCell>
+                <TableCell>{row.i}</TableCell>
+                <TableCell>{row.kw}</TableCell>
+                <TableCell>{row.kvar}</TableCell>
+                <TableCell sx={{ borderTopRightRadius: 8, borderBottomRightRadius: 8 }}>{row.kva}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Box>
+    </Card>
+  );
+};
 
 const PfItem = ({ label, value, color }) => (
   <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ bgcolor: 'background.default', p: 2, borderRadius: 2, borderLeft: '5px solid', borderColor: color }}>
@@ -334,8 +347,8 @@ const TotalEnergy = ({ data }) => (
       <TrendingUp color="primary" />
     </Stack>
     <Stack spacing={2.5} sx={{ flex: 1, height: '100%' }}>
-      <EnergyBox title="ACTIVE ENERGY" value={data?.kwh ?? '--'} unit="kWh" color="#3b82f6" />
-      <EnergyBox title="REACTIVE ENERGY" value={data?.kvarh ?? '--'} unit="kVArh" color="#a855f7" />
+      <EnergyBox title="ACTIVE ENERGY" value={formatToMega(data?.kwh)} unit="MWh" color="#3b82f6" />
+      <EnergyBox title="REACTIVE ENERGY" value={formatToMega(data?.kvarh ?? data?.kvarhlag)} unit="MVArh" color="#a855f7" />
     </Stack>
   </Card>
 );
@@ -479,36 +492,36 @@ const RealTimeParameters = () => {
       labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '23:59'],
       paths: {
         Voltage: { color: '#f59e0b', d: "M0,40 Q300,35 700,50 T1400,45" },
-        kWh:     { color: '#3b82f6', d: "M0,80 Q250,60 500,90 T1000,75 T1400,85" },
+        MWh:     { color: '#3b82f6', d: "M0,80 Q250,60 500,90 T1000,75 T1400,85" },
         Current: { color: '#ef4444', d: "M0,110 Q400,125 700,105 T1400,115" },
-        kVArh:   { color: '#10b981', d: "M0,135 Q300,130 600,140 T1000,135 T1400,140" },
+        MVArh:   { color: '#10b981', d: "M0,135 Q300,130 600,140 T1000,135 T1400,140" },
       }
     },
     1: {
       labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
       paths: {
         Voltage: { color: '#f59e0b', d: "M0,50 Q300,60 700,40 T1400,55" },
-        kWh:     { color: '#3b82f6', d: "M0,90 Q200,110 400,70 T800,80 T1400,60" },
+        MWh:     { color: '#3b82f6', d: "M0,90 Q200,110 400,70 T800,80 T1400,60" },
         Current: { color: '#ef4444', d: "M0,120 Q400,100 700,115 T1400,110" },
-        kVArh:   { color: '#10b981', d: "M0,140 Q300,135 600,145 T1000,135 T1400,145" },
+        MVArh:   { color: '#10b981', d: "M0,140 Q300,135 600,145 T1000,135 T1400,145" },
       }
     },
     2: {
       labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'],
       paths: {
         Voltage: { color: '#f59e0b', d: "M0,45 Q350,30 700,55 T1400,40" },
-        kWh:     { color: '#3b82f6', d: "M0,75 Q350,95 700,65 T1400,80" },
+        MWh:     { color: '#3b82f6', d: "M0,75 Q350,95 700,65 T1400,80" },
         Current: { color: '#ef4444', d: "M0,105 Q350,120 700,100 T1400,125" },
-        kVArh:   { color: '#10b981', d: "M0,130 Q350,145 700,135 T1400,140" },
+        MVArh:   { color: '#10b981', d: "M0,130 Q350,145 700,135 T1400,140" },
       }
     },
     3: {
       labels: ['Jan', 'Mar', 'May', 'Jul', 'Sep', 'Nov', 'Dec'],
       paths: {
         Voltage: { color: '#f59e0b', d: "M0,35 Q300,50 700,30 T1400,45" },
-        kWh:     { color: '#3b82f6', d: "M0,65 Q250,85 600,60 T1000,90 T1400,70" },
+        MWh:     { color: '#3b82f6', d: "M0,65 Q250,85 600,60 T1000,90 T1400,70" },
         Current: { color: '#ef4444', d: "M0,115 Q400,105 700,125 T1400,100" },
-        kVArh:   { color: '#10b981', d: "M0,145 Q300,130 600,140 T1000,135 T1400,140" },
+        MVArh:   { color: '#10b981', d: "M0,145 Q300,130 600,140 T1000,135 T1400,140" },
       }
     }
   };
@@ -537,7 +550,7 @@ const RealTimeParameters = () => {
             {paramFilter === 'All' ? 'Parameters' : paramFilter}
           </Button>
           <Menu anchorEl={anchorElParam} open={openParam} onClose={() => setAnchorElParam(null)}>
-            {['All', 'kWh', 'kVArh', 'Voltage', 'Current'].map(opt => (
+            {['All', 'MWh', 'MVArh', 'Voltage', 'Current'].map(opt => (
               <MenuItem key={opt} onClick={() => { setParamFilter(opt); setAnchorElParam(null); }}>{opt}</MenuItem>
             ))}
           </Menu>
@@ -548,7 +561,7 @@ const RealTimeParameters = () => {
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }} mb={2} spacing={2}>
         <Typography variant="subtitle2" fontWeight="bold" textTransform="uppercase" letterSpacing={1}>REAL-TIME PARAMETERS</Typography>
         <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-          {[{l: 'kWh', c: 'primary.main'}, {l: 'kVArh', c: 'success.main'}, {l: 'Voltage', c: 'warning.main'}, {l: 'Current', c: 'error.main'}].map(item => (
+          {[{l: 'MWh', c: 'primary.main'}, {l: 'MVArh', c: 'success.main'}, {l: 'Voltage', c: 'warning.main'}, {l: 'Current', c: 'error.main'}].map(item => (
             <Typography key={item.l} variant="caption" color={item.c} display="flex" alignItems="center" gap={0.5}>
               <Circle sx={{ fontSize: 8 }} /> {item.l}
             </Typography>
@@ -579,9 +592,9 @@ const RealTimeParameters = () => {
       </Box>
       
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} mt={4}>
-        <Box flex={1}><SummaryBox title="Daily Summary" energy={{ val: '450', unit: 'kWh' }} pf="0.98" progress="70%" /></Box>
-        <Box flex={1}><SummaryBox title="Monthly Summary" energy={{ val: '12,450', unit: 'kWh' }} pf="0.96" progress="85%" /></Box>
-        <Box flex={1}><SummaryBox title="Yearly Summary" energy={{ val: '1.4', unit: 'MWh' }} pf="0.95" progress="95%" /></Box>
+        <Box flex={1}><SummaryBox title="Daily Summary" energy={{ val: '0.45', unit: 'MWh' }} pf="0.98" progress="70%" /></Box>
+        <Box flex={1}><SummaryBox title="Monthly Summary" energy={{ val: '12.45', unit: 'MWh' }} pf="0.96" progress="85%" /></Box>
+        <Box flex={1}><SummaryBox title="Yearly Summary" energy={{ val: '145.2', unit: 'MWh' }} pf="0.95" progress="95%" /></Box>
       </Stack>
     </Card>
   );
@@ -641,7 +654,7 @@ const Dashboard = () => {
       </Grid>
 
       <MonthlyAnalysis />
-      {/* <RealTimeParameters /> */}
+      <RealTimeParameters />
     </Box>
   );
 };
