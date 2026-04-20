@@ -24,25 +24,26 @@ const socket = io("https://ipqsoms.com", {
   transports: ["websocket"],
 });
 
-// Converts raw Voltage to kV (Divides by 1,000)
-const formatVoltageToKV = (volts) => {
-  if (volts === undefined || volts === null || volts === '') return '--';
-  const num = parseFloat(volts);
-  return isNaN(num) ? '--' : (num / 1000).toFixed(2);
-};
-
-// Converts raw Current to kA (Divides by 1,000)
-const formatCurrentToKA = (amps) => {
-  if (amps === undefined || amps === null || amps === '') return '--';
-  const num = parseFloat(amps);
-  return isNaN(num) ? '--' : (num / 1000).toFixed(2);
-};
-
-// Converts raw Watts/VA/VAr to Mega (Divides by 1,000,000)
-const convertToMega = (val) => {
+// Displays raw value directly from JSON (handles null/undefined and formats to 3 decimals)
+const formatValue = (val) => {
   if (val === undefined || val === null || val === '') return '--';
   const num = parseFloat(val);
-  return isNaN(num) ? '--' : (num / 1000000).toFixed(2); 
+  return isNaN(num) ? '--' : num.toFixed(3);
+};
+
+// Converts raw voltage to kV by dividing by 1000 (handles null/undefined)
+const formatVoltage = (val) => {
+  if (val === undefined || val === null || val === '') return '--';
+  const num = parseFloat(val);
+  return isNaN(num) ? '--' : (num / 1000).toFixed(2); 
+};
+
+// Custom logic to drop digits based on your exact requirements (using Math.trunc)
+const formatEnergyCustom = (val, divisor) => {
+  if (val === undefined || val === null || val === '') return '--';
+  const num = parseFloat(val);
+  if (isNaN(num)) return '--';
+  return Math.trunc(num / divisor).toString();
 };
 
 // ==========================================
@@ -247,9 +248,34 @@ const Header = ({ liveData }) => {
 };
 
 const MetricBox = ({ title, value, unit, color }) => (
-  <Box sx={{ p: 1.5, borderRadius: 2, textAlign: 'center', bgcolor: alpha(color, 0.1), border: `1px solid ${color}` }}>
-    <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" mb={0.5}>{title}</Typography>
-    <Typography variant="h5" fontWeight="bold" color="text.primary">{value} <Typography component="span" variant="body2" color="text.secondary">{unit}</Typography></Typography>
+  <Box sx={{ 
+    p: 2.5, 
+    borderRadius: 2, 
+    textAlign: 'center', 
+    bgcolor: alpha(color, 0.1), 
+    border: `1px solid ${color}`,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '100%' 
+  }}>
+    <Typography 
+      variant="h6" 
+      color="text.secondary" 
+      fontWeight={600} 
+      display="block" 
+      mb={1} 
+      sx={{ fontSize: '1.05rem', whiteSpace: 'nowrap' }}
+    >
+      {title}
+    </Typography>
+    <Typography variant="h4" fontWeight="bold" color="text.primary" sx={{ mb: 0.5 }}>
+      {value}
+    </Typography>
+    <Typography variant="body1" color="text.secondary" fontWeight={600}>
+      {unit}
+    </Typography>
   </Box>
 );
 
@@ -260,31 +286,31 @@ const PhaseParameters = ({ data }) => {
         <Typography variant="subtitle1" color="text.secondary" fontWeight={600} textTransform="uppercase" letterSpacing={1}>Phase Electrical Parameters</Typography>
         <ElectricalServices color="warning" />
       </Stack>
-      <Grid container spacing={1.5} mb={3}>
-        <Grid size={{ xs: 12, sm: 2.4 }}><MetricBox title="AVG VOLTAGE" value={formatVoltageToKV(data?.voltage)} unit="kV" color="#3b82f6" /></Grid>
-        <Grid size={{ xs: 12, sm: 2.4 }}><MetricBox title="AVG CURRENT" value={formatCurrentToKA(data?.current)} unit="kA" color="#10b981" /></Grid>
-        <Grid size={{ xs: 12, sm: 2.4 }}><MetricBox title="ACTIVE PWR" value={convertToMega(data?.kw)} unit="MW" color="#f59e0b" /></Grid>
-        <Grid size={{ xs: 12, sm: 2.4 }}><MetricBox title="REACTIVE PWR" value={convertToMega(data?.kvar)} unit="MVAr" color="#a855f7" /></Grid>
-        <Grid size={{ xs: 12, sm: 2.4 }}><MetricBox title="APPARENT PWR" value={convertToMega(data?.kva)} unit="MVA" color="#06b6d4" /></Grid>
+      <Grid container spacing={2} mb={4} alignItems="stretch">
+        <Grid size={{ xs: 12, sm: 2.4 }}><MetricBox title="Average Voltage" value={formatVoltage(data?.voltage)} unit="kV" color="#3b82f6" /></Grid>
+        <Grid size={{ xs: 12, sm: 2.4 }}><MetricBox title="Average Current" value={formatValue(data?.current)} unit="A" color="#10b981" /></Grid>
+        <Grid size={{ xs: 12, sm: 2.4 }}><MetricBox title="Active Power" value={formatValue(data?.kw)} unit="MW" color="#f59e0b" /></Grid>
+        <Grid size={{ xs: 12, sm: 2.4 }}><MetricBox title="Reactive Power" value={formatValue(data?.kvar)} unit="MVAr" color="#a855f7" /></Grid>
+        <Grid size={{ xs: 12, sm: 2.4 }}><MetricBox title="Apparent Power" value={formatValue(data?.kva)} unit="MVA" color="#06b6d4" /></Grid>
       </Grid>
       <Box sx={{ overflowX: 'auto', mt: 'auto' }}>
         <Table sx={{ minWidth: 500, borderSpacing: '0 15px', borderCollapse: 'separate' }}>
           <TableHead>
             <TableRow>
-              {['Voltage (kV)', 'Current (kA)', 'Active Pwr (MW)', 'Reactive (MVAr)', 'Apparent (MVA)'].map((head) => (
-                <TableCell key={head} align="center" sx={{ color: 'text.secondary', fontWeight: 600, borderBottom: 'none', py: 0 }}>
-                  {head.split(' ')[0]} <br/> <Typography variant="caption" fontWeight={400}>{head.split(' ')[1]}</Typography>
+              {['Voltage (kV)', 'Current (A)', 'Active (MW)', 'Reactive (MVAr)', 'Apparent (MVA)'].map((head) => (
+                <TableCell key={head} align="center" sx={{ color: 'text.secondary', fontWeight: 600, borderBottom: 'none', py: 1, fontSize: '1.1rem' }}>
+                  {head.split(' ')[0]} <br/> <Typography variant="body2" fontWeight={500} mt={0.5}>{head.split(' ')[1]}</Typography>
                 </TableCell>
               ))}
             </TableRow>
           </TableHead>
           <TableBody>
             {[
-              { v: formatVoltageToKV(data?.voltage_r), i: formatCurrentToKA(data?.current_r), kw: convertToMega(data?.kw_r), kvar: convertToMega(data?.kvar_r), kva: convertToMega(data?.kva_r), color: '#ef4444' },
-              { v: formatVoltageToKV(data?.voltage_y), i: formatCurrentToKA(data?.current_y), kw: convertToMega(data?.kw_y), kvar: convertToMega(data?.kvar_y), kva: convertToMega(data?.kva_y), color: '#f59e0b' },
-              { v: formatVoltageToKV(data?.voltage_b), i: formatCurrentToKA(data?.current_b), kw: convertToMega(data?.kw_b), kvar: convertToMega(data?.kvar_b), kva: convertToMega(data?.kva_b), color: '#3b82f6' },
+              { v: formatVoltage(data?.voltage_r), i: formatValue(data?.current_r), kw: formatValue(data?.kw_r), kvar: formatValue(data?.kvar_r), kva: formatValue(data?.kva_r), color: '#ef4444' },
+              { v: formatVoltage(data?.voltage_y), i: formatValue(data?.current_y), kw: formatValue(data?.kw_y), kvar: formatValue(data?.kvar_y), kva: formatValue(data?.kva_y), color: '#f59e0b' },
+              { v: formatVoltage(data?.voltage_b), i: formatValue(data?.current_b), kw: formatValue(data?.kw_b), kvar: formatValue(data?.kvar_b), kva: formatValue(data?.kva_b), color: '#3b82f6' },
             ].map((row, index) => (
-              <TableRow key={index} sx={{ '& td': { bgcolor: alpha(row.color, 0.08), borderBottom: 'none', py: 2, fontSize: '1.2rem', fontWeight: 600, textAlign: 'center' } }}>
+              <TableRow key={index} sx={{ '& td': { bgcolor: alpha(row.color, 0.08), borderBottom: 'none', py: 2.5, fontSize: '1.4rem', fontWeight: 600, textAlign: 'center' } }}>
                 <TableCell sx={{ borderLeft: `6px solid ${row.color}`, borderTopLeftRadius: 8, borderBottomLeftRadius: 8 }}>{row.v}</TableCell>
                 <TableCell>{row.i}</TableCell>
                 <TableCell>{row.kw}</TableCell>
@@ -318,42 +344,66 @@ const SystemPowerFactor = ({ data }) => {
       </Stack>
       <Box sx={{ display: 'flex', justifyContent: 'center', my: 'auto', py: 2 }}>
         <Box sx={{ 
-          width: 180, height: 180, borderRadius: '50%', 
+          width: 160, height: 160, borderRadius: '50%', 
           background: `conic-gradient(#10b981 ${pfPercent}%, #334155 0)`, 
           display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', 
           '&::after': { content: '""', position: 'absolute', width: 'calc(100% - 20px)', height: 'calc(100% - 20px)', bgcolor: 'background.paper', borderRadius: '50%' } 
         }}>
           <Box sx={{ position: 'relative', zIndex: 2, textAlign: 'center' }}>
-            <Typography variant="h3" fontWeight="bold">{data?.power_factor ?? '--'}</Typography>
+            <Typography variant="h4" fontWeight="bold">{formatValue(data?.power_factor)}</Typography>
             <Typography variant="caption" color="text.secondary" fontWeight={600} letterSpacing={1}>SYSTEM PF</Typography>
           </Box>
         </Box>
       </Box>
       <Stack spacing={1.5} mt={2}>
-        <PfItem label="PHASE 1 (R)" value={data?.pf_r ?? '--'} color="error.main" />
-        <PfItem label="PHASE 2 (Y)" value={data?.pf_y ?? '--'} color="warning.main" />
-        <PfItem label="PHASE 3 (B)" value={data?.pf_b ?? '--'} color="primary.main" />
+        <PfItem label="PHASE (R)" value={formatValue(data?.pf_r)} color="error.main" />
+        <PfItem label="PHASE (Y)" value={formatValue(data?.pf_y)} color="warning.main" />
+        <PfItem label="PHASE (B)" value={formatValue(data?.pf_b)} color="primary.main" />
       </Stack>
     </Card>
   );
 };
 
 const EnergyBox = ({ title, value, unit, color }) => (
-  <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', p: 2.5, borderRadius: 2, textAlign: 'center', bgcolor: alpha(color, 0.08), border: `1px solid ${alpha(color, 0.4)}` }}>
-    <Typography variant="body2" color="text.secondary" fontWeight={600} letterSpacing={1} mb={1}>{title}</Typography>
-    <Typography variant="h3" fontWeight="bold">{value} <Typography component="span" variant="subtitle1" color="text.secondary">{unit}</Typography></Typography>
+  <Box sx={{ 
+    flex: 1, 
+    display: 'flex', 
+    flexDirection: 'column', 
+    justifyContent: 'center', 
+    p: 1.5, 
+    borderRadius: 2, 
+    textAlign: 'center', 
+    bgcolor: alpha(color, 0.08), 
+    border: `1px solid ${alpha(color, 0.4)}` 
+  }}>
+    <Typography variant="caption" color="text.secondary" fontWeight={600} letterSpacing={1} mb={0.5} textTransform="uppercase">
+      {title}
+    </Typography>
+    <Typography variant="h5" fontWeight="bold" sx={{ color: 'text.primary', mb: 0 }}>
+      {value}
+    </Typography>
+    <Typography variant="body2" color="text.secondary">
+      {unit}
+    </Typography>
   </Box>
 );
 
 const TotalEnergy = ({ data }) => (
   <Card sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
-    <Stack direction="row" justifyContent="space-between" mb={3}>
+    <Stack direction="row" justifyContent="space-between" mb={2}>
       <Typography variant="subtitle1" color="text.secondary" fontWeight={600} textTransform="uppercase" letterSpacing={1}>Total Energy</Typography>
       <TrendingUp color="primary" />
     </Stack>
-    <Stack spacing={2.5} sx={{ flex: 1, height: '100%' }}>
-      <EnergyBox title="ACTIVE ENERGY" value={convertToMega(data?.kwh)} unit="MWh" color="#3b82f6" />
-      <EnergyBox title="REACTIVE ENERGY" value={convertToMega(data?.kvarh ?? data?.kvarhlag)} unit="MVArh" color="#a855f7" />
+    <Stack spacing={1.5} sx={{ flex: 1, height: '100%' }}>
+      {/* Ordered explicitly as requested, using formatEnergyCustom with precise divisors */}
+      <EnergyBox title="kWh Import" value={formatEnergyCustom(data?.kwh_import, 1000)} unit="kWh" color="#3b82f6" />
+      <EnergyBox title="kWh Export" value={formatEnergyCustom(data?.kwh_export, 1000)} unit="kWh" color="#3b82f6" />
+      
+      <EnergyBox title="kVAh Import" value={formatEnergyCustom(data?.kvah_import, 1000)} unit="kVAh" color="#06b6d4" />
+      <EnergyBox title="kVAh Export" value={formatEnergyCustom(data?.kvah_export, 1000)} unit="kVAh" color="#06b6d4" />
+      
+      <EnergyBox title="kVArh Import" value={formatEnergyCustom(data?.kvarh_import, 10)} unit="kVArh" color="#a855f7" />
+      <EnergyBox title="kVArh Export" value={formatEnergyCustom(data?.kvarh_export, 100)} unit="kVArh" color="#a855f7" />
     </Stack>
   </Card>
 );
@@ -467,36 +517,6 @@ const MonthlyAnalysis = () => {
   );
 };
 
-const RealTimeParameters = () => {
-  const [tab, setTab] = useState(0);
-  const [paramFilter, setParamFilter] = useState('All');
-  const [anchorElParam, setAnchorElParam] = useState(null);
-  const openParam = Boolean(anchorElParam);
-
-  const graphData = {
-    0: {
-      labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '23:59'],
-      paths: {
-        Voltage: { color: '#f59e0b', d: "M0,40 Q300,35 700,50 T1400,45" },
-        MWh:     { color: '#3b82f6', d: "M0,80 Q250,60 500,90 T1000,75 T1400,85" },
-        Current: { color: '#ef4444', d: "M0,110 Q400,125 700,105 T1400,115" },
-        MVArh:   { color: '#10b981', d: "M0,135 Q300,130 600,140 T1000,135 T1400,140" },
-      }
-    },
-    1: {
-      labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-      paths: {
-        Voltage: { color: '#f59e0b', d: "M0,50 Q300,60 700,40 T1400,55" },
-        MWh:     { color: '#3b82f6', d: "M0,90 Q200,110 400,70 T800,80 T1400,60" },
-        Current: { color: '#ef4444', d: "M0,120 Q400,100 700,115 T1400,110" },
-        MVArh:   { color: '#10b981', d: "M0,140 Q300,135 600,145 T1000,135 T1400,145" },
-      }
-    }
-  };
-
-  return null; 
-};
-
 // ==========================================
 // 5. MAIN DASHBOARD LAYOUT & SOCKET LISTENER
 // ==========================================
@@ -523,8 +543,30 @@ const Dashboard = () => {
         }
       }
 
-      console.log('📡 Raw Live Data from Socket:', parsedData);
-      setLiveData(parsedData);
+      // 1. Flatten the data object if measurements are nested inside a "data" property
+      let flatData = { ...parsedData };
+      if (parsedData && parsedData.data && typeof parsedData.data === 'object') {
+         flatData = { ...parsedData, ...parsedData.data };
+      }
+
+      // 2. Normalize all keys to lowercase to avoid issues between "Kvarh" and "kvarh"
+      let normalizedData = {};
+      if (flatData) {
+         Object.keys(flatData).forEach(key => {
+            normalizedData[key.toLowerCase()] = flatData[key];
+         });
+      }
+
+      // 3. Handle naming fallbacks (e.g., if 'powerfactor' is sent instead of 'power_factor')
+      if (normalizedData.powerfactor !== undefined && normalizedData.power_factor === undefined) {
+         normalizedData.power_factor = normalizedData.powerfactor;
+      }
+      if (normalizedData.kvarhlag !== undefined && normalizedData.kvarh === undefined) {
+         normalizedData.kvarh = normalizedData.kvarhlag;
+      }
+
+      console.log('✅ Normalized Data for UI:', normalizedData);
+      setLiveData(normalizedData);
     };
 
     socket.on(eventName, handleData);
@@ -547,8 +589,8 @@ const Dashboard = () => {
       <Header liveData={liveData} />
 
       <Grid container spacing={3} sx={{ width: '100%', margin: 0 }}>
-        <Grid size={{ xs: 12, lg: 7 }}><PhaseParameters data={liveData} /></Grid>
-        <Grid size={{ xs: 12, md: 6, lg: 3 }}><SystemPowerFactor data={liveData} /></Grid>
+        <Grid size={{ xs: 12, lg: 7.8 }}><PhaseParameters data={liveData} /></Grid>
+        <Grid size={{ xs: 12, md: 6, lg: 2.2 }}><SystemPowerFactor data={liveData} /></Grid>
         <Grid size={{ xs: 12, md: 6, lg: 2 }}><TotalEnergy data={liveData} /></Grid>
       </Grid>
 
