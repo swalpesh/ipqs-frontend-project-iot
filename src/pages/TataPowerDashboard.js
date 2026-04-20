@@ -396,14 +396,14 @@ const TotalEnergy = ({ data }) => (
     </Stack>
     <Stack spacing={1.5} sx={{ flex: 1, height: '100%' }}>
       {/* Ordered explicitly as requested, using formatEnergyCustom with precise divisors */}
-      <EnergyBox title="kWh Import" value={formatEnergyCustom(data?.kwh_import, 1000)} unit="kWh" color="#3b82f6" />
-      <EnergyBox title="kWh Export" value={formatEnergyCustom(data?.kwh_export, 1000)} unit="kWh" color="#3b82f6" />
+      <EnergyBox title="kWh Import" value={formatEnergyCustom(data?.kwh_import, 1000)} unit="MWh" color="#3b82f6" />
+      <EnergyBox title="kWh Export" value={formatEnergyCustom(data?.kwh_export, 1000)} unit="MWh" color="#3b82f6" />
       
-      <EnergyBox title="kVAh Import" value={formatEnergyCustom(data?.kvah_import, 1000)} unit="kVAh" color="#06b6d4" />
-      <EnergyBox title="kVAh Export" value={formatEnergyCustom(data?.kvah_export, 1000)} unit="kVAh" color="#06b6d4" />
+      <EnergyBox title="kVAh Import" value={formatEnergyCustom(data?.kvah_import, 1000)} unit="MVAh" color="#06b6d4" />
+      <EnergyBox title="kVAh Export" value={formatEnergyCustom(data?.kvah_export, 1000)} unit="MVAh" color="#06b6d4" />
       
-      <EnergyBox title="kVArh Import" value={formatEnergyCustom(data?.kvarh_import, 10)} unit="kVArh" color="#a855f7" />
-      <EnergyBox title="kVArh Export" value={formatEnergyCustom(data?.kvarh_export, 100)} unit="kVArh" color="#a855f7" />
+      <EnergyBox title="kVArh Import" value={formatEnergyCustom(data?.kvarh_import, 10)} unit="MVArh" color="#a855f7" />
+      <EnergyBox title="kVArh Export" value={formatEnergyCustom(data?.kvarh_export, 100)} unit="MVArh" color="#a855f7" />
     </Stack>
   </Card>
 );
