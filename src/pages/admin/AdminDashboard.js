@@ -1,12 +1,13 @@
 // AdminDashboard.js
 import React, { useEffect, useState } from 'react';
-import { Card, Col, Row, Button, Spinner } from 'react-bootstrap';
+import { Card, Col, Row, Button, Spinner, Modal, Form } from 'react-bootstrap';
 import BusinessIcon from '@mui/icons-material/Business';
 import DevicesIcon from '@mui/icons-material/Devices';
 import SubscriptionsIcon from '@mui/icons-material/Description';
 import { useNavigate } from 'react-router-dom';
 import DeviceImage from '../../assets/solar-panel.png';
 import io from 'socket.io-client';
+import * as XLSX from 'xlsx';
 
 const socket = io("https://ipqsoms.com", {
   path: "/socket.io",
@@ -20,6 +21,11 @@ export default function AdminDashboard() {
   const [topCompanies, setTopCompanies] = useState([]);
   const [liveData, setLiveData] = useState({});
   const [loading, setLoading] = useState(true);
+
+  // States for Export Popup
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportDate, setExportDate] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -71,24 +77,72 @@ export default function AdminDashboard() {
     fetchData();
   }, []);
 
+  const handleExport = async () => {
+    if (!exportDate) return;
+    setIsExporting(true);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.REACT_APP_API_BASE_URL}/admin/device/full-day-data?date=${exportDate}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch export data');
+
+      const result = await response.json();
+      
+      if (!result.data || result.data.length === 0) {
+        alert('No data found for the selected date.');
+        setIsExporting(false);
+        return;
+      }
+
+      // Convert JSON mapping directly to Excel sheet format
+      const worksheet = XLSX.utils.json_to_sheet(result.data);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Daily PF Records');
+
+      // Trigger file download
+      XLSX.writeFile(workbook, `Daily_PF_Records_${exportDate}.xlsx`);
+      
+      setShowExportModal(false);
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('Error exporting data. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const cards = [
     {
       title: 'Registered Companies',
       value: totalCompanies,
       icon: <BusinessIcon fontSize="large" className="text-primary" />,
       bg: '#e7f1ff',
+      isAction: false,
     },
     {
       title: 'Installed Devices',
       value: totalDevices,
       icon: <DevicesIcon fontSize="large" className="text-success" />,
       bg: '#eaf9f0',
+      isAction: false,
     },
     {
-      title: 'Total Subscriptions',
-      value: 'N/A',
+      title: 'Daily PF Records',
+      value: (
+        <Button 
+          variant="warning" 
+          className="fw-bold text-dark mt-2 shadow-sm"
+          onClick={() => setShowExportModal(true)}
+        >
+          Export Records
+        </Button>
+      ),
       icon: <SubscriptionsIcon fontSize="large" className="text-warning" />,
       bg: '#fff8e1',
+      isAction: true,
     },
   ];
 
@@ -109,11 +163,15 @@ export default function AdminDashboard() {
       <div className="row g-4 mb-5">
         {cards.map((card, index) => (
           <Col key={index} xs={12} md={6} lg={4}>
-            <Card className="rounded-4 shadow-sm border-0" style={{ background: card.bg }}>
+            <Card className="rounded-4 shadow-sm border-0 h-100" style={{ background: card.bg }}>
               <Card.Body className="d-flex justify-content-between align-items-center p-4">
                 <div>
                   <h6 className="text-uppercase text-muted fw-semibold small mb-2">{card.title}</h6>
-                  <h3 className="fw-bold mb-0">{card.value}</h3>
+                  {card.isAction ? (
+                    card.value
+                  ) : (
+                    <h3 className="fw-bold mb-0">{card.value}</h3>
+                  )}
                 </div>
                 <div>{card.icon}</div>
               </Card.Body>
@@ -124,7 +182,6 @@ export default function AdminDashboard() {
 
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h5 className="fw-bold mb-0">Top Performing Companies</h5>
-        
       </div>
 
       <Row className="g-4">
@@ -225,6 +282,39 @@ export default function AdminDashboard() {
           ))
         )}
       </Row>
+
+      {/* Export Modal */}
+      <Modal show={showExportModal} onHide={() => setShowExportModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Export Daily PF Records</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group>
+            <Form.Label className="fw-semibold">Select Date</Form.Label>
+            <Form.Control
+              type="date"
+              value={exportDate}
+              onChange={(e) => setExportDate(e.target.value)}
+              max={new Date().toISOString().split("T")[0]}
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowExportModal(false)} disabled={isExporting}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleExport} disabled={!exportDate || isExporting}>
+            {isExporting ? (
+              <>
+                <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
+                <span className="ms-2">Exporting...</span>
+              </>
+            ) : (
+              'Export to Excel'
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }
