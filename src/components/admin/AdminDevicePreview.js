@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Card } from 'react-bootstrap';
+import { Card, Row, Col } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import BatteryChargingFullIcon from '@mui/icons-material/BatteryChargingFull';
-import SolarPowerIcon from '@mui/icons-material/SolarPower';
-import deviceImg from '../../assets/solar-panel.png';
+import deviceImg from '../../assets/solar-panel.png'; // Make sure this path is correct for your project
 import io from 'socket.io-client';
 
 const socket = io("https://ipqsoms.com", {
@@ -84,22 +82,28 @@ export default function AdminDevicePreview({ companyId }) {
     navigate(`/admindevices/${id}`);
   };
 
+  // Helper function to safely format numbers and prevent layout breaks
+  const formatNumber = (val, decimals = 2) => {
+    if (val === null || val === undefined || isNaN(val)) return '--';
+    return Number(val).toFixed(decimals);
+  };
+
   return (
     <div className="row g-4">
       {devices.map((device) => {
         const live = liveData[device.device_id] || {};
         const animate = liveAnimating[device.device_id];
         const isActive = device.status === 'active';
-        const statusColor = isActive ? 'green' : 'red';
+        const statusColor = isActive ? '#198754' : '#dc3545'; // Bootstrap success/danger greens and reds
         const pf = parseFloat(live?.power_factor);
         const pfMin = pfRanges[device.device_id]?.min ?? 0.999;
         const pfMax = pfRanges[device.device_id]?.max ?? 1.0;
         const pfAlert = pf && (pf < pfMin || pf > pfMax);
 
         return (
-          <div className="col-12 col-md-6" key={device.device_id}>
+          <div className="col-12 col-md-6 col-xl-4" key={device.device_id}>
             <Card
-              className={`rounded-4 border-0 shadow-sm p-3 h-100 ${pfAlert ? 'bg-danger bg-opacity-10' : 'bg-white'}`}
+              className={`rounded-4 border-0 shadow-sm h-100 device-card ${pfAlert ? 'bg-danger bg-opacity-10' : 'bg-white'}`}
               onClick={() => {
                 if (isActive) {
                   handleNavigate(device.device_id);
@@ -108,29 +112,28 @@ export default function AdminDevicePreview({ companyId }) {
               title={!isActive ? 'Device is closed. Contact Superadmin to reactivate.' : ''}
               style={{
                 cursor: isActive ? 'pointer' : 'not-allowed',
-                transition: 'transform 0.2s ease-in-out',
+                transition: 'all 0.2s ease-in-out',
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.015)')}
-              onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
             >
-              <Card.Body className="d-flex flex-column justify-content-between">
-                <div className="d-flex justify-content-between align-items-start mb-3">
+              <Card.Body className="p-4 d-flex flex-column justify-content-between">
+                
+                {/* Header: Title, Status, and Image */}
+                <div className="d-flex justify-content-between align-items-start mb-4">
                   <div>
-                    <h6 className="fw-semibold mb-2">{device.device_name}</h6>
-                    <span
-                      className="fw-semibold mb-1"
+                    <h5 className="fw-bold mb-2 text-dark">{device.device_name}</h5>
+                    <div
+                      className="fw-bold small"
                       style={{
                         color: statusColor,
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: 6,
-                        fontWeight: 600,
+                        gap: '6px',
                       }}
                     >
                       <span
                         style={{
-                          width: 8,
-                          height: 8,
+                          width: '10px',
+                          height: '10px',
                           borderRadius: '50%',
                           backgroundColor: statusColor,
                           display: 'inline-block',
@@ -138,58 +141,63 @@ export default function AdminDevicePreview({ companyId }) {
                         }}
                       />
                       {device.status}
-                    </span>
-                    <h4 className="fw-bold mt-2">{live?.power_factor ?? '--'} PF</h4>
-                    <div className="small">
-                      CURRENT <span className="text-danger fw-semibold">{live?.current ?? '--'} A</span> &nbsp;
-                      VOLTAGE <span className="text-primary fw-semibold">{live?.voltage ?? '--'} V</span>
-                    </div>
-                    <div className="text-muted txt-inst">
-                      Installed On: {new Date(device.created_at).toLocaleDateString('en-GB')}
                     </div>
                   </div>
-
                   <img
                     src={deviceImg}
                     alt="device"
                     style={{
-                      width: 80,
+                      width: '75px',
                       height: 'auto',
                       objectFit: 'contain',
-                      marginLeft: '10px',
-                      filter: 'drop-shadow(0px 2px 5px rgba(0,0,0,0.2))',
+                      filter: 'drop-shadow(0px 4px 6px rgba(0,0,0,0.15))',
                     }}
                   />
                 </div>
 
-                <div className="d-flex justify-content-between bg-light rounded-3 px-3 py-2 mt-3">
-                  <div className="d-flex align-items-center gap-2">
-                    <div>
-                      <div className="fw-bold">{live?.kw ?? '--'}</div>
-                      <small className="text-muted">TOTAL kw</small>
-                    </div>
+                {/* Main Metric: Power Factor (Limited to 4 decimals) */}
+                <h2 className="fw-black text-dark mb-4" style={{ fontSize: '2.5rem', fontWeight: '800' }}>
+                  {formatNumber(live?.power_factor, 4)} <span className="fs-4 text-muted fw-bold">PF</span>
+                </h2>
+                
+                {/* Secondary Metrics: Current & Voltage */}
+                <div className="mb-4">
+                  <div className="mb-3">
+                    <div className="text-uppercase text-muted small fw-bold" style={{ letterSpacing: '1px', fontSize: '0.75rem' }}>Current</div>
+                    <div className="text-danger fw-bold fs-5">{formatNumber(live?.current, 3)} A</div>
                   </div>
+                  <div>
+                    <div className="text-uppercase text-muted small fw-bold" style={{ letterSpacing: '1px', fontSize: '0.75rem' }}>Voltage</div>
+                    <div className="text-primary fw-bold fs-5">{formatNumber(live?.voltage, 4)} V</div>
+                  </div>
+                </div>
+                
+                {/* Installed Date */}
+                <div className="mb-4">
+                  <div className="text-muted small">Installed On:</div>
+                  <div className="fw-medium text-dark">{new Date(device.created_at).toLocaleDateString('en-GB')}</div>
+                </div>
 
-                  <div className="d-flex align-items-center gap-2">
-                    <div>
-                      <div className="fw-bold">{live?.kvar ?? '--'}</div>
-                      <small className="text-muted">TOTAL Kvar</small>
-                    </div>
-                  </div>
-
-                  <div className="d-flex align-items-center gap-2">
-                    <div>
-                      <div className="fw-bold">{live?.kvarhlag ?? '--'}</div>
-                      <small className="text-muted">Kvarh (Lag)</small>
-                    </div>
-                  </div>
-
-                  <div className="d-flex align-items-center gap-2">
-                    <div>
-                      <div className="fw-bold">{live?.kvarhlead ?? '--'}</div>
-                      <small className="text-muted">Kvarh (Lead)</small>
-                    </div>
-                  </div>
+                {/* FIXED LAYOUT: 2x2 Responsive Bottom Grid */}
+                <div className="bg-light rounded-4 p-3 mt-auto">
+                  <Row className="g-3">
+                    <Col xs={6}>
+                      <div className="fw-bold fs-5 text-dark">{formatNumber(live?.kw, 2)}</div>
+                      <div className="text-muted text-uppercase fw-semibold" style={{ fontSize: '0.7rem', letterSpacing: '0.5px' }}>TOTAL kw</div>
+                    </Col>
+                    <Col xs={6}>
+                      <div className="fw-bold fs-5 text-dark">{formatNumber(live?.kvar, 2)}</div>
+                      <div className="text-muted text-uppercase fw-semibold" style={{ fontSize: '0.7rem', letterSpacing: '0.5px' }}>TOTAL Kvar</div>
+                    </Col>
+                    <Col xs={6}>
+                      <div className="fw-bold fs-5 text-dark">{formatNumber(live?.kvarhlag, 2)}</div>
+                      <div className="text-muted text-uppercase fw-semibold" style={{ fontSize: '0.7rem', letterSpacing: '0.5px' }}>Kvarh (Lag)</div>
+                    </Col>
+                    <Col xs={6}>
+                      <div className="fw-bold fs-5 text-dark">{formatNumber(live?.kvarhlead, 2)}</div>
+                      <div className="text-muted text-uppercase fw-semibold" style={{ fontSize: '0.7rem', letterSpacing: '0.5px' }}>Kvarh (Lead)</div>
+                    </Col>
+                  </Row>
                 </div>
               </Card.Body>
             </Card>
@@ -201,8 +209,17 @@ export default function AdminDevicePreview({ companyId }) {
         {`
           @keyframes pulse {
             0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.8); opacity: 0.5; }
+            50% { transform: scale(1.6); opacity: 0.7; }
             100% { transform: scale(1); opacity: 1; }
+          }
+          
+          .device-card:hover {
+            transform: translateY(-5px) !important;
+            box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+          }
+          
+          .fw-black {
+            font-weight: 900;
           }
         `}
       </style>
