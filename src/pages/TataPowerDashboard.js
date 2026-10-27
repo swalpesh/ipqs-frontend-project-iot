@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
 
 // Import Logos (Ensure these paths match your project structure)
-import tataLogo from '../assets/tata_power.png'; 
-import ipqsLogo from '../assets/logo.png'; 
+import tataLogo from '../assets/tata_power.png';
+import ipqsLogo from '../assets/logo.png';
 
 // ==========================================
 // 1. SOCKET CONNECTION & UTILITIES
@@ -22,7 +22,7 @@ const formatValue = (val) => {
 const formatVoltage = (val) => {
   if (val === undefined || val === null || val === '') return '--';
   const num = parseFloat(val);
-  return isNaN(num) ? '--' : (num / 1000).toFixed(2); 
+  return isNaN(num) ? '--' : (num / 1000).toFixed(2);
 };
 
 const formatEnergyCustom = (val, divisor) => {
@@ -32,15 +32,106 @@ const formatEnergyCustom = (val, divisor) => {
   return Math.trunc(num / divisor).toString();
 };
 
+// |PF| as a 0–100 percentage, used for the gauge ring and per-phase bars
+const pfPercent = (val) => {
+  const num = Math.abs(parseFloat(val));
+  return isNaN(num) ? 0 : Math.min(num, 1) * 100;
+};
+
 // ==========================================
-// 2. MAIN COMPONENT
+// 2. STATIC CONFIG
+// ==========================================
+
+// Power-factor quality thresholds (on |PF|). Adjust to your plant's targets.
+const PF_GOOD = 0.95;
+const PF_FAIR = 0.85;
+
+const PHASES = [
+  { key: 'r', name: 'R', color: '#fb7185', soft: 'rgba(251, 113, 133, 0.12)' },
+  { key: 'y', name: 'Y', color: '#fbbf24', soft: 'rgba(251, 191, 36, 0.12)' },
+  { key: 'b', name: 'B', color: '#60a5fa', soft: 'rgba(96, 165, 250, 0.12)' },
+];
+
+const PHASE_METRICS = [
+  { label: 'Voltage',  unit: 'kV',   field: 'voltage', fmt: formatVoltage },
+  { label: 'Current',  unit: 'A',    field: 'current', fmt: formatValue },
+  { label: 'Active',   unit: 'MW',   field: 'kw',      fmt: formatValue },
+  { label: 'Apparent', unit: 'kVA',  field: 'kva',     fmt: formatValue },
+  { label: 'Reactive', unit: 'kVAr', field: 'kvar',    fmt: formatValue },
+];
+
+const AVERAGE_METRICS = [
+  { label: 'Average Voltage',  unit: 'kV',   field: 'voltage', fmt: formatVoltage },
+  { label: 'Average Current',  unit: 'A',    field: 'current', fmt: formatValue },
+  { label: 'Average Active',   unit: 'MW',   field: 'kw',      fmt: formatValue },
+  { label: 'Average Reactive', unit: 'MVAr', field: 'kvar',    fmt: formatValue },
+  { label: 'Average Apparent', unit: 'MVA',  field: 'kva',     fmt: formatValue },
+];
+
+const KPIS = [
+  { label: 'kWh Import',   field: 'kwh_import',   divisor: 1000, unit: 'kWh',   tone: 'var(--tone-active)' },
+  { label: 'kWh Export',   field: 'kwh_export',   divisor: 1000, unit: 'kWh',   tone: 'var(--tone-active)' },
+  { label: 'kVAh Import',  field: 'kvah_import',  divisor: 1000, unit: 'kVAh',  tone: 'var(--tone-apparent)' },
+  { label: 'kVAh Export',  field: 'kvah_export',  divisor: 1000, unit: 'kVAh',  tone: 'var(--tone-apparent)' },
+  { label: 'kVArh Import', field: 'kvarh_import', divisor: 10,   unit: 'kVArh', tone: 'var(--tone-reactive)' },
+  { label: 'kVArh Export', field: 'kvarh_export', divisor: 100,  unit: 'kVArh', tone: 'var(--tone-reactive)' },
+];
+
+// ==========================================
+// 3. INLINE ICONS (no Font Awesome dependency)
+// ==========================================
+const Icon = ({ children, size = 16, style }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} aria-hidden="true">
+    {children}
+  </svg>
+);
+const GearIcon = (p) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+  </Icon>
+);
+const LogoutIcon = (p) => (
+  <Icon {...p}>
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <polyline points="16 17 21 12 16 7" />
+    <line x1="21" y1="12" x2="9" y2="12" />
+  </Icon>
+);
+const WifiIcon = (p) => (
+  <Icon {...p}>
+    <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+    <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+    <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+    <line x1="12" y1="20" x2="12.01" y2="20" />
+  </Icon>
+);
+const BoltIcon = (p) => (
+  <Icon {...p}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></Icon>
+);
+const GaugeIcon = (p) => (
+  <Icon {...p}>
+    <path d="M12 14l4-4" />
+    <path d="M3.34 19a10 10 0 1 1 17.32 0" />
+  </Icon>
+);
+const PinIcon = (p) => (
+  <Icon {...p}>
+    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+    <circle cx="12" cy="10" r="3" />
+  </Icon>
+);
+
+// ==========================================
+// 4. MAIN COMPONENT
 // ==========================================
 const TataPowerDashboard = () => {
     // --- State Management ---
     const [liveData, setLiveData] = useState(null);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [weather, setWeather] = useState(null);
-    
+
     // Modals & Auth State
     const [openCredModal, setOpenCredModal] = useState(false);
     const [logoutCountdown, setLogoutCountdown] = useState(null);
@@ -56,7 +147,7 @@ const TataPowerDashboard = () => {
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!token) window.location.href = '/login';
-        
+
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
@@ -72,7 +163,7 @@ const TataPowerDashboard = () => {
             }
         };
         fetchWeather();
-        const interval = setInterval(fetchWeather, 120000); 
+        const interval = setInterval(fetchWeather, 120000);
         return () => clearInterval(interval);
     }, []);
 
@@ -80,7 +171,7 @@ const TataPowerDashboard = () => {
         const checkCredentials = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const localUsername = localStorage.getItem('company_username') || localStorage.getItem('username'); 
+                const localUsername = localStorage.getItem('company_username') || localStorage.getItem('username');
                 if (!token || !localUsername) return;
 
                 const response = await fetch('https://ipqsoms.com/api/companies/TatapowerLtd.', {
@@ -93,7 +184,7 @@ const TataPowerDashboard = () => {
                     const fetchedUsername = data?.company?.company_username;
                     if (fetchedUsername && fetchedUsername !== localUsername) {
                         setShowLogoutModal(true);
-                        setLogoutCountdown(10); 
+                        setLogoutCountdown(10);
                     }
                 }
             } catch (error) {
@@ -120,7 +211,7 @@ const TataPowerDashboard = () => {
     useEffect(() => {
         const deviceId = "DEV122240";
         const eventName = `device-data-${deviceId}`;
-        
+
         const handleData = (incoming) => {
             let parsedData = incoming;
             if (typeof incoming === 'string') {
@@ -129,7 +220,7 @@ const TataPowerDashboard = () => {
             let flatData = { ...parsedData, ...(parsedData?.data || {}) };
             let normalizedData = {};
             Object.keys(flatData).forEach(key => { normalizedData[key.toLowerCase()] = flatData[key]; });
-            
+
             if (normalizedData.powerfactor !== undefined && normalizedData.power_factor === undefined) {
                 normalizedData.power_factor = normalizedData.powerfactor;
             }
@@ -145,9 +236,9 @@ const TataPowerDashboard = () => {
 
     // --- Action Handlers ---
     const handleLogout = () => {
-        socket.disconnect(); 
+        socket.disconnect();
         localStorage.clear();
-        window.location.href = '/login'; 
+        window.location.href = '/login';
     };
 
     const handleCredSubmit = async () => {
@@ -182,388 +273,613 @@ const TataPowerDashboard = () => {
     // --- Derived Status Variables ---
     const timeString = currentTime.toLocaleTimeString('en-GB', { hour12: false });
     const dateString = currentTime.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-    
+
     const networkVal = parseInt(liveData?.network_status || "0");
-    const networkColor = networkVal > 80 ? 'var(--accent-green)' : networkVal >= 50 ? 'var(--accent-yellow)' : 'var(--accent-red)';
-    const networkLabel = networkVal > 80 ? 'STRONG' : networkVal >= 50 ? 'MODERATE' : 'WEAK';
-    
+    const networkColor = networkVal > 80 ? 'var(--good)' : networkVal >= 50 ? 'var(--warn)' : 'var(--bad)';
+    const networkLabel = networkVal > 80 ? 'Strong' : networkVal >= 50 ? 'Moderate' : 'Weak';
+
     const isConnected = liveData?.status?.toLowerCase().includes('connected');
-    
+
     const pfSys = parseFloat(liveData?.power_factor ?? 0);
+    const hasPf = liveData?.power_factor !== undefined && liveData?.power_factor !== null && !isNaN(pfSys);
+    const pfAbs = Math.abs(pfSys);
+    const pfTone = !hasPf ? 'var(--text-dim)' : pfAbs >= PF_GOOD ? 'var(--good)' : pfAbs >= PF_FAIR ? 'var(--warn)' : 'var(--bad)';
+    const pfQuality = !hasPf ? 'Waiting for data' : pfAbs >= PF_GOOD ? 'Good' : pfAbs >= PF_FAIR ? 'Fair' : 'Low';
+
+    // Gauge ring geometry
+    const RING_R = 84;
+    const RING_C = 2 * Math.PI * RING_R;
+    const ringOffset = RING_C * (1 - (hasPf ? pfPercent(pfSys) : 0) / 100);
 
     return (
         <div className="dashboard-wrapper">
             <style>
                 {`
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap');
+
                 :root {
-                    --bg-dark: #090e17; 
-                    --card-bg: #111827;
-                    --card-border: #1f2937;
-                    --text-main: #f8fafc;
-                    --text-muted: #94a3b8;
-                    
-                    --accent-blue: #06b6d4; 
-                    --accent-green: #10b981;
-                    --accent-yellow: #facc15;
-                    --accent-orange: #f97316;
-                    --accent-red: #ef4444; 
-                    
-                    --shadow-3d: 2px 2px 4px rgba(0,0,0,0.5), -1px -1px 2px rgba(255,255,255,0.05);
+                    /* Surfaces */
+                    --bg: #060a13;
+                    --surface: #0b1220;
+                    --surface-2: rgba(255, 255, 255, 0.025);
+                    --surface-3: rgba(255, 255, 255, 0.045);
+                    --border: rgba(148, 163, 184, 0.10);
+                    --border-strong: rgba(148, 163, 184, 0.18);
+
+                    /* Text */
+                    --text: #e6ebf3;
+                    --text-muted: #8a97ab;
+                    --text-dim: #5b687d;
+
+                    /* Brand accent */
+                    --accent: #22d3ee;
+                    --accent-2: #818cf8;
+                    --accent-grad: linear-gradient(135deg, #22d3ee 0%, #818cf8 100%);
+
+                    /* Status */
+                    --good: #34d399;
+                    --warn: #fbbf24;
+                    --bad: #f87171;
+
+                    /* KPI tones */
+                    --tone-active: #34d399;
+                    --tone-apparent: #818cf8;
+                    --tone-reactive: #f59e0b;
+
+                    --radius: 14px;
+                    --radius-sm: 10px;
+                    --shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 12px 32px -16px rgba(0, 0, 0, 0.8);
+
+                    --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+                    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
                 }
 
-                * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+                * { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font-sans); }
+
+                html, body { max-width: 100%; overflow-x: hidden; }
 
                 body {
-                    background-color: var(--bg-dark);
-                    background-image: 
-                        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-                    background-size: 40px 40px;
-                    color: var(--text-main);
+                    background-color: var(--bg);
+                    background-image:
+                        radial-gradient(1100px 520px at 0% -10%, rgba(34, 211, 238, 0.07), transparent 60%),
+                        radial-gradient(900px 480px at 100% -5%, rgba(129, 140, 248, 0.07), transparent 60%),
+                        linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+                    background-size: auto, auto, 44px 44px, 44px 44px;
+                    color: var(--text);
                     min-height: 100vh;
                     padding: 20px;
+                    -webkit-font-smoothing: antialiased;
                 }
 
                 .dashboard-wrapper {
+                    width: 100%;
                     max-width: 1600px;
                     margin: 0 auto;
                     display: flex;
                     flex-direction: column;
-                    gap: 15px;
+                    gap: 16px;
                     min-height: calc(100vh - 40px);
+                }
+                .dashboard-wrapper > *, .main-grid > *, .kpi-row > * { min-width: 0; }
+
+                .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+                /* Shared card surface */
+                .surface {
+                    background:
+                        linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0) 45%),
+                        var(--surface);
+                    border: 1px solid var(--border);
+                    border-radius: var(--radius);
+                    box-shadow: var(--shadow);
                 }
 
                 /* --- HEADER --- */
                 .app-header {
-                    display: flex; justify-content: space-between; align-items: center;
-                    padding: 12px 20px; background: rgba(17, 24, 39, 0.98); 
-                    backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08);
-                    border-radius: 10px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+                    display: grid;
+                    grid-template-columns: auto 1fr auto auto;
+                    grid-template-areas: "left center widgets actions";
+                    align-items: center;
+                    gap: 16px;
+                    padding: 12px 18px;
+                    position: relative;
+                    overflow: hidden;
                 }
-                
-                .header-left, .header-center, .header-right { 
-                    display: flex; align-items: center; gap: 15px; 
-                }
-
-                .company-logo { height: 40px; object-fit: contain; }
-                .brand-info p { font-size: 0.85rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-weight: 500; }
-
-                /* IPQS Center Styling */
-                .ipqs-logo { height: 30px; object-fit: contain; }
-                .dashboard-title { font-size: 0.85rem; font-weight: 600; letter-spacing: 2px; color: var(--text-muted); text-transform: uppercase; }
-
-                .weather-widget {
-                    display: flex; align-items: center; background: rgba(0, 0, 0, 0.3);
-                    border: 1px solid var(--card-border); padding: 6px 12px; border-radius: 6px;
-                }
-                .loc-temp { display: flex; flex-direction: column; text-align: right; font-size: 0.70rem; color: var(--text-muted); }
-                .loc-temp strong { font-size: 1rem; color: var(--text-main); font-family: 'Inter', sans-serif; }
-
-                .network-widget {
-                    display: flex; flex-direction: column; align-items: center; justify-content: center;
-                    background: rgba(0, 0, 0, 0.3); border: 1px solid var(--card-border);
-                    padding: 5px 10px; border-radius: 6px; font-size: 0.65rem; font-weight: 700;
+                .app-header::after {
+                    content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px;
+                    background: var(--accent-grad); opacity: 0.55;
                 }
 
-                .status-badge {
-                    border-radius: 20px; font-weight: 600; font-size: 0.85rem; padding: 5px 12px;
-                    display: flex; align-items: center; gap: 6px;
+                .header-left    { grid-area: left; display: flex; align-items: center; gap: 14px; min-width: 0; }
+                .header-center  { grid-area: center; display: flex; align-items: center; justify-content: center; gap: 12px; min-width: 0; }
+                .header-widgets { grid-area: widgets; display: flex; align-items: center; gap: 10px; }
+                .header-actions {
+                    grid-area: actions; display: flex; align-items: center; gap: 8px;
+                    border-left: 1px solid var(--border); padding-left: 14px;
                 }
-                .status-badge.active-status { background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.3); }
-                .status-badge.offline-status { background: rgba(239, 68, 68, 0.1); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.3); }
-                .status-badge i { font-size: 0.55rem; }
 
-                .time-widget { text-align: right; margin-right: 10px; }
-                .time-display { font-size: 1.25rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
-                .date-display { font-size: 0.75rem; color: var(--text-muted); }
+                .company-logo { height: 38px; object-fit: contain; flex-shrink: 0; }
+                .brand-divider { width: 1px; height: 30px; background: var(--border-strong); flex-shrink: 0; }
+                .brand-info { min-width: 0; }
+                .brand-name { font-size: 0.92rem; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
+                .brand-sub  { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; display: flex; align-items: center; gap: 4px; }
 
-                .header-actions { display: flex; align-items: center; gap: 10px; border-left: 1px solid var(--card-border); padding-left: 15px;}
-
-                .icon-btn {
-                    background: rgba(0, 0, 0, 0.3); border: 1px solid var(--card-border); color: var(--text-muted);
-                    width: 35px; height: 35px; border-radius: 6px; cursor: pointer; transition: 0.2s ease;
-                    display: flex; align-items: center; justify-content: center; font-size: 1rem;
-                }
-                .icon-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-main); }
-
-                .logout-btn {
-                    background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--accent-red);
-                    padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: 0.2s ease;
+                .ipqs-logo { height: 26px; object-fit: contain; opacity: 0.95; }
+                .dashboard-title {
+                    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.18em; color: var(--text-muted); text-transform: uppercase;
                     display: flex; align-items: center; gap: 8px;
                 }
-                .logout-btn:hover { background: rgba(239, 68, 68, 0.2); }
+                .live-tag {
+                    font-size: 0.6rem; letter-spacing: 0.12em; font-weight: 700; color: var(--accent);
+                    border: 1px solid rgba(34, 211, 238, 0.35); background: rgba(34, 211, 238, 0.08);
+                    padding: 2px 7px; border-radius: 999px;
+                }
 
-                /* --- TOP KPI ROW --- */
+                .chip {
+                    display: flex; align-items: center; justify-content: center; gap: 8px;
+                    background: var(--surface-2); border: 1px solid var(--border);
+                    border-radius: var(--radius-sm); padding: 7px 12px; height: 44px;
+                }
+
+                .weather-widget .loc { font-size: 0.65rem; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; }
+                .weather-widget .temp { font-size: 1rem; font-weight: 600; color: var(--text); }
+                .loc-temp { display: flex; flex-direction: column; text-align: right; line-height: 1.2; }
+
+                .network-widget { font-size: 0.72rem; font-weight: 600; }
+
+                .status-badge { font-weight: 600; font-size: 0.8rem; }
+                .status-badge.active-status  { color: var(--good); border-color: rgba(52, 211, 153, 0.28); background: rgba(52, 211, 153, 0.07); }
+                .status-badge.offline-status { color: var(--bad);  border-color: rgba(248, 113, 113, 0.28); background: rgba(248, 113, 113, 0.07); }
+                .status-dot { position: relative; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+                .status-dot::after {
+                    content: ''; position: absolute; inset: 0; border-radius: 50%; background: currentColor;
+                    animation: pulse 1.8s ease-out infinite;
+                }
+                @keyframes pulse { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(2.8); opacity: 0; } }
+
+                .time-widget { flex-direction: column; align-items: flex-end; gap: 0; line-height: 1.2; }
+                .time-display { font-size: 1.05rem; font-weight: 600; color: var(--text); }
+                .date-display { font-size: 0.68rem; color: var(--text-muted); }
+
+                .icon-btn {
+                    background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted);
+                    width: 38px; height: 38px; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s ease;
+                    display: flex; align-items: center; justify-content: center;
+                }
+                .icon-btn:hover { background: var(--surface-3); color: var(--text); border-color: var(--border-strong); }
+
+                .logout-btn {
+                    background: rgba(248, 113, 113, 0.07); border: 1px solid rgba(248, 113, 113, 0.25); color: #fca5a5;
+                    height: 38px; padding: 0 14px; border-radius: var(--radius-sm); cursor: pointer; font-weight: 600; font-size: 0.8rem;
+                    transition: all 0.2s ease; display: flex; align-items: center; gap: 8px;
+                }
+                .logout-btn:hover { background: rgba(248, 113, 113, 0.14); color: #fecaca; }
+
+                /* --- KPI ROW --- */
                 .kpi-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
                 .kpi-card {
-                    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px;
-                    padding: 15px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+                    position: relative; overflow: hidden;
+                    padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;
                 }
-                .kpi-label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px; }
-                .kpi-value { font-size: 1.35rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
-                .kpi-value .unit { font-size: 0.75rem; font-weight: 400; color: var(--text-muted); font-family: 'Inter', sans-serif;}
+                .kpi-card::before {
+                    content: ''; position: absolute; left: 0; top: 0; right: 0; height: 2px;
+                    background: linear-gradient(90deg, var(--tone), transparent 85%); opacity: 0.85;
+                }
+                .kpi-label {
+                    display: flex; align-items: center; gap: 7px;
+                    font-size: 0.7rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase;
+                }
+                .kpi-label .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--tone); box-shadow: 0 0 8px var(--tone); }
+                .kpi-value { font-size: 1.45rem; font-weight: 600; color: var(--text); white-space: nowrap; }
+                .kpi-value .unit { font-size: 0.72rem; font-weight: 500; color: var(--text-dim); font-family: var(--font-sans); margin-left: 4px; letter-spacing: 0; }
 
                 /* --- MAIN GRID & PANELS --- */
-                .main-grid { display: grid; grid-template-columns: 2.2fr 1fr; gap: 15px; flex: 1; }
-                .panel {
-                    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px;
-                    padding: 20px; box-shadow: 0 8px 16px rgba(0,0,0,0.4); display: flex; flex-direction: column;
+                .main-grid { display: grid; grid-template-columns: 2.2fr 1fr; gap: 16px; flex: 1; }
+                .panel { padding: 22px; display: flex; flex-direction: column; }
+
+                .panel-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 20px; }
+                .panel-title {
+                    display: flex; align-items: center; gap: 10px;
+                    font-size: 0.78rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+                    color: var(--text-muted); line-height: 1.3;
                 }
-                .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
-                .panel-header h2 { font-size: 0.90rem; color: var(--text-muted); letter-spacing: 1px; }
+                .panel-title::before {
+                    content: ''; width: 3px; height: 14px; border-radius: 2px; background: var(--accent-grad); flex-shrink: 0;
+                }
+                .panel-icon {
+                    width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+                    display: flex; align-items: center; justify-content: center;
+                    color: var(--accent); background: rgba(34, 211, 238, 0.08); border: 1px solid rgba(34, 211, 238, 0.2);
+                }
 
-                .param-summary-row { display: flex; gap: 12px; margin-bottom: 20px; }
-                .param-box { flex: 1; background: rgba(0,0,0,0.2); border: 1px solid var(--card-border); border-radius: 8px; padding: 12px 10px; text-align: center; }
-                .param-title { font-size: 0.70rem; color: var(--text-muted); margin-bottom: 8px; white-space: nowrap; }
-                .param-val { font-size: 1.3rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; margin-bottom: 2px; }
-                .param-unit { font-size: 0.70rem; color: var(--text-muted); }
+                .param-summary-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 22px; }
+                .param-box {
+                    min-width: 0; background: var(--surface-2); border: 1px solid var(--border);
+                    border-radius: 12px; padding: 14px; text-align: left;
+                }
+                .param-title { display: block; font-size: 0.68rem; color: var(--text-muted); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .param-val { font-size: 1.3rem; font-weight: 600; color: var(--text); white-space: nowrap; }
+                .param-unit { font-size: 0.7rem; color: var(--text-dim); margin-left: 4px; font-family: var(--font-sans); font-weight: 500; }
 
-                .table-container { margin-top: 20px; margin-bottom: 40px; }
-                .data-table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; table-layout: fixed; }
-                .data-table th, .data-table td { border: 1px solid var(--card-border); }
-                .data-table th { color: var(--text-muted); font-size: 0.85rem; font-weight: 500; padding: 16px 10px; background: rgba(0,0,0,0.2); }
-                .data-table td { padding: 24px 10px; font-size: 1.1rem; font-weight: 600; text-align: center; }
+                /* Table */
+                .table-container { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 8px; }
+                .data-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+                .data-table th {
+                    color: var(--text-dim); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+                    padding: 14px 12px; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border); text-align: center;
+                }
+                .data-table th .th-unit { color: var(--text-dim); opacity: 0.75; text-transform: none; letter-spacing: 0; margin-left: 3px; }
+                .data-table td {
+                    padding: 22px 12px; font-size: 1.05rem; font-weight: 600; text-align: center; color: var(--text);
+                    border-bottom: 1px solid var(--border);
+                    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+                }
+                .data-table tbody tr:last-child td { border-bottom: none; }
+                .data-table tbody tr { transition: background 0.2s ease; }
+                .data-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+                .data-table tbody tr td:first-child { box-shadow: inset 3px 0 0 var(--pc); }
 
-                .row-r-color td { color: var(--accent-red); }
-                .row-y-color td { color: var(--accent-yellow); }
-                .row-b-color td { color: var(--accent-blue); }
-                .phase-col { font-weight: 700 !important; }
+                .phase-chip {
+                    display: inline-flex; align-items: center; justify-content: center;
+                    width: 32px; height: 32px; border-radius: 9px; font-family: var(--font-sans);
+                    font-weight: 700; font-size: 0.85rem; color: var(--pc); background: var(--pc-soft);
+                    border: 1px solid var(--pc);
+                }
 
-                /* --- LIVE POWER FACTOR --- */
-                .avg-pf-container { display: flex; flex-direction: column; align-items: center; margin: auto 0; }
-                .avg-pf-label { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 15px; font-weight: 600; text-transform: uppercase; }
-                .avg-pf-circle { width: 190px; height: 190px; border-radius: 50%; border: 2px solid var(--accent-blue); display: flex; align-items: center; justify-content: center; }
-                .avg-pf-value { font-size: 2.6rem; font-weight: 700; color: var(--text-main); font-family: 'JetBrains Mono', monospace; }
-                
-                .phase-pf-list { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
-                .pf-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-top: 1px solid var(--card-border); }
-                .pf-phase-name { font-size: 0.95rem; color: var(--text-muted); font-weight: 600; flex: 1; }
-                .pf-box { font-size: 1.3rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; padding: 4px 16px; border-radius: 6px; text-align: center; min-width: 110px; }
-                
-                .pf-box-r { background: rgba(239, 68, 68, 0.12); border: 1.5px solid var(--accent-red); color: var(--accent-red); }
-                .pf-box-y { background: rgba(250, 204, 21, 0.12); border: 1.5px solid var(--accent-yellow); color: var(--accent-yellow); }
-                .pf-box-b { background: rgba(6, 182, 212, 0.12); border: 1.5px solid var(--accent-blue); color: var(--accent-blue); }
+                /* Phone-only phase cards */
+                .phase-cards { display: none; }
+                .phase-card {
+                    background: var(--surface-2); border: 1px solid var(--border);
+                    border-radius: 12px; padding: 14px; position: relative; overflow: hidden;
+                }
+                .phase-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--pc); }
+                .phase-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+                .phase-card-head .phase-chip { width: 26px; height: 26px; font-size: 0.75rem; border-radius: 7px; }
+                .phase-card-head span:last-child { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.12em; color: var(--text-muted); text-transform: uppercase; }
+                .phase-card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 8px; }
+                .phase-metric-label { display: block; font-size: 0.64rem; color: var(--text-dim); margin-bottom: 3px; }
+                .phase-metric-value { font-weight: 600; font-size: 0.95rem; color: var(--text); }
+
+                /* --- POWER FACTOR --- */
+                .pf-panel { position: relative; }
+                .avg-pf-container { display: flex; flex-direction: column; align-items: center; margin: auto 0; padding: 8px 0 20px; }
+                .pf-gauge { position: relative; width: 200px; height: 200px; }
+                .pf-gauge svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+                .pf-gauge .track { stroke: rgba(148, 163, 184, 0.1); }
+                .pf-gauge .progress {
+                    stroke: var(--pf-tone); transition: stroke-dashoffset 0.8s ease, stroke 0.4s ease;
+                    filter: drop-shadow(0 0 6px var(--pf-tone));
+                }
+                .pf-gauge-center {
+                    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+                }
+                .avg-pf-value { font-size: 2.4rem; font-weight: 600; color: var(--text); line-height: 1; }
+                .avg-pf-label { font-size: 0.64rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-dim); }
+                .pf-quality {
+                    margin-top: 16px; font-size: 0.72rem; font-weight: 600; color: var(--pf-tone);
+                    padding: 4px 12px; border-radius: 999px; border: 1px solid currentColor; background: rgba(255,255,255,0.02);
+                }
+
+                .phase-pf-list { display: flex; flex-direction: column; margin-top: auto; }
+                .pf-row { padding: 14px 0; border-top: 1px solid var(--border); }
+                .pf-row-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+                .pf-phase-name { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--text-muted); font-weight: 500; }
+                .pf-phase-name .phase-chip { width: 26px; height: 26px; font-size: 0.72rem; border-radius: 7px; }
+                .pf-box {
+                    font-size: 1.1rem; font-weight: 600; color: var(--pc);
+                    padding: 4px 12px; border-radius: 8px; background: var(--pc-soft); min-width: 92px; text-align: center;
+                }
+                .pf-bar { height: 4px; border-radius: 999px; background: rgba(148, 163, 184, 0.1); overflow: hidden; }
+                .pf-bar span { display: block; height: 100%; border-radius: 999px; background: var(--pc); transition: width 0.8s ease; }
 
                 /* --- MODALS --- */
                 .modal-overlay {
-                    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-                    background: rgba(0,0,0,0.8); backdrop-filter: blur(4px);
-                    display: flex; align-items: center; justify-content: center; z-index: 1000;
+                    position: fixed; inset: 0; background: rgba(3, 6, 12, 0.75); backdrop-filter: blur(6px);
+                    display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px;
                 }
                 .modal-content {
-                    background: var(--card-bg); border: 1px solid var(--card-border);
-                    border-radius: 12px; padding: 25px; width: 400px; max-width: 90%;
-                    box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center;
+                    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0) 40%), var(--surface);
+                    border: 1px solid var(--border-strong); border-radius: 16px; padding: 26px;
+                    width: 420px; max-width: 100%; max-height: 100%; overflow-y: auto;
+                    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.8); text-align: center;
                 }
-                .modal-content h3 { margin-bottom: 20px; font-weight: 600; }
-                .form-group { margin-bottom: 15px; text-align: left; }
-                .form-group label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px; }
+                .modal-title { font-size: 1.05rem; font-weight: 600; margin-bottom: 20px; color: var(--text); }
+                .form-group { margin-bottom: 14px; text-align: left; }
+                .form-group label { display: block; font-size: 0.72rem; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; }
                 .form-group input {
-                    width: 100%; padding: 10px; border-radius: 6px;
-                    background: rgba(0,0,0,0.3); border: 1px solid var(--card-border);
-                    color: var(--text-main); font-family: inherit; outline: none;
+                    width: 100%; padding: 11px 12px; border-radius: var(--radius-sm);
+                    background: rgba(0,0,0,0.25); border: 1px solid var(--border-strong);
+                    color: var(--text); font-size: 16px; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
                 }
-                .form-group input:focus { border-color: var(--accent-blue); }
-                .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
-                .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; }
-                .btn-cancel { background: transparent; color: var(--text-muted); border: 1px solid var(--card-border); }
-                .btn-submit { background: var(--accent-blue); color: #fff; }
-                .text-error { color: var(--accent-red); font-size: 3rem; margin: 15px 0; font-family: 'JetBrains Mono', monospace; font-weight: bold; }
+                .form-group input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.15); }
+                .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+                .btn { padding: 10px 18px; border-radius: var(--radius-sm); border: none; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s; }
+                .btn-cancel { background: transparent; color: var(--text-muted); border: 1px solid var(--border-strong); }
+                .btn-cancel:hover { color: var(--text); background: var(--surface-2); }
+                .btn-submit { background: var(--accent-grad); color: #04121a; }
+                .btn-submit:hover { filter: brightness(1.08); }
+                .security-modal { border-color: rgba(248, 113, 113, 0.5); box-shadow: 0 0 40px rgba(248, 113, 113, 0.25); }
+                .security-modal .modal-title { color: var(--bad); }
+                .security-modal p { color: var(--text); line-height: 1.55; font-size: 0.9rem; }
+                .text-error { color: var(--bad); font-size: 3rem; margin: 16px 0 6px; font-weight: 700; }
+                .countdown-label { color: var(--text-dim); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em; }
 
-                /* Mobile Adjustments */
-                @media (max-width: 1200px) {
-                    .header-center { display: none; } /* Hide IPQS center text on smaller screens to prevent overflow */
+                @media (prefers-reduced-motion: reduce) {
+                    .status-dot::after { animation: none; }
+                    .pf-gauge .progress, .pf-bar span { transition: none; }
+                }
+
+                /* ==========================================
+                   RESPONSIVE BREAKPOINTS
+                   ========================================== */
+                @media (max-width: 1280px) {
+                    .app-header {
+                        grid-template-columns: 1fr auto auto;
+                        grid-template-areas:
+                            "left widgets actions"
+                            "center center center";
+                    }
+                    .header-center { border-top: 1px solid var(--border); padding-top: 10px; }
+                    .kpi-row { grid-template-columns: repeat(3, 1fr); }
+                }
+
+                @media (max-width: 1024px) {
+                    .main-grid { grid-template-columns: 1fr; }
+                    .avg-pf-container { margin: 0; }
+                }
+
+                @media (max-width: 900px) {
+                    .app-header {
+                        grid-template-columns: 1fr auto;
+                        grid-template-areas:
+                            "left actions"
+                            "widgets widgets"
+                            "center center";
+                        padding: 12px 14px;
+                        gap: 12px;
+                    }
+                    .header-actions { border-left: none; padding-left: 0; }
+                    .header-widgets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+                    .time-widget { order: -1; align-items: center; }
+                    .loc-temp { text-align: center; }
+                }
+
+                @media (max-width: 768px) {
+                    .param-summary-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+                    .param-summary-row .param-box:last-child { grid-column: 1 / -1; }
+                    .param-val { font-size: 1.15rem; }
+
+                    .table-container { display: none; }
+                    .phase-cards { display: grid; gap: 10px; }
+                }
+
+                @media (max-width: 600px) {
+                    body { padding: 10px; }
+                    .dashboard-wrapper { gap: 10px; min-height: calc(100vh - 20px); }
+
+                    .company-logo { height: 30px; }
+                    .brand-divider { display: none; }
+                    .header-left { gap: 10px; }
+                    .brand-name { font-size: 0.8rem; line-height: 1.3; }
+                    .brand-sub { font-size: 0.66rem; }
+
+                    .ipqs-logo { height: 20px; }
+                    .dashboard-title { font-size: 0.6rem; letter-spacing: 0.12em; }
+
+                    .icon-btn, .logout-btn { width: 36px; height: 36px; }
+                    .logout-btn { padding: 0; justify-content: center; }
+                    .logout-btn .logout-text { display: none; }
+
+                    .header-widgets { grid-template-columns: repeat(3, 1fr); }
+                    .chip { height: 42px; padding: 6px 8px; }
+                    .time-widget { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; padding: 6px 12px; }
+                    .time-display { font-size: 1rem; }
+                    .weather-widget .temp { font-size: 0.9rem; }
+                    .network-widget, .status-badge { font-size: 0.7rem; gap: 6px; }
+
+                    .kpi-row { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+                    .kpi-card { padding: 12px 14px; gap: 8px; }
+                    .kpi-label { font-size: 0.62rem; letter-spacing: 0.04em; }
+                    .kpi-value { font-size: 1.15rem; }
+                    .kpi-value .unit { font-size: 0.62rem; }
+
+                    .main-grid { gap: 10px; }
+                    .panel { padding: 16px; }
+                    .panel-header { margin-bottom: 16px; }
+                    .panel-title { font-size: 0.7rem; letter-spacing: 0.1em; }
+                    .panel-icon { width: 28px; height: 28px; }
+
+                    .param-box { padding: 12px; }
+
+                    .pf-gauge { width: 168px; height: 168px; }
+                    .avg-pf-value { font-size: 2rem; }
+                    .pf-box { font-size: 1rem; min-width: 84px; }
+
+                    .modal-content { padding: 20px; }
+                    .modal-actions .btn { flex: 1; }
+                    .text-error { font-size: 2.4rem; }
+                }
+
+                @media (max-width: 380px) {
+                    .phase-card-grid { grid-template-columns: repeat(2, 1fr); }
+                    .kpi-value { font-size: 1.02rem; }
                 }
                 `}
             </style>
-            
+
             {/* HEADER */}
-            <header className="app-header">
-                {/* Left: Tata Power Branding */}
+            <header className="app-header surface">
                 <div className="header-left">
                     <img src={tataLogo} alt="Tata Power" className="company-logo" />
+                    <span className="brand-divider"></span>
                     <div className="brand-info">
-                        <p>TP Kirnali Ltd. 100 MW Solar Plant, Partur</p>
+                        <div className="brand-name">TP Kirnali Ltd. · 100 MW Solar Plant</div>
+                        <div className="brand-sub"><PinIcon size={11} /> Partur, Maharashtra</div>
                     </div>
                 </div>
-                
-                {/* Center: IPQS Branding */}
+
                 <div className="header-center">
                     <img src={ipqsLogo} alt="IPQS" className="ipqs-logo" />
-                    <span className="dashboard-title">ENERGY MONITORING DASHBOARD (LIVE)</span>
+                    <span className="dashboard-title">
+                        Energy Monitoring Dashboard <span className="live-tag">LIVE</span>
+                    </span>
                 </div>
 
-                {/* Right: Widgets & Controls */}
-                <div className="header-right">
-                    <div className="weather-widget">
+                <div className="header-widgets">
+                    <div className="chip weather-widget">
                         <div className="loc-temp">
-                            <span>PARTUR, MH</span>
-                            <strong>{weather ? `${weather.temp}°` : '--°'}</strong>
+                            <span className="loc">Partur, MH</span>
+                            <span className="temp num">{weather ? `${weather.temp}°C` : '--°'}</span>
                         </div>
                     </div>
 
-                    <div className="network-widget" style={{ color: networkColor }}>
-                        <i className="fa-solid fa-wifi" style={{ textShadow: `0 0 8px ${networkColor}` }}></i>
+                    <div className="chip network-widget" style={{ color: networkColor }}>
+                        <WifiIcon size={15} />
                         <span>{networkLabel}</span>
                     </div>
 
-                    <div className={`status-badge ${isConnected ? 'active-status' : 'offline-status'}`}>
-                        <i className="fa-solid fa-circle"></i> {isConnected ? 'Active' : 'Offline'}
+                    <div className={`chip status-badge ${isConnected ? 'active-status' : 'offline-status'}`}>
+                        <span className="status-dot"></span> {isConnected ? 'Active' : 'Offline'}
                     </div>
 
-                    <div className="time-widget">
-                        <div className="time-display">{timeString}</div>
+                    <div className="chip time-widget">
+                        <div className="time-display num">{timeString}</div>
                         <div className="date-display">{dateString}</div>
                     </div>
+                </div>
 
-                    <div className="header-actions">
-                        <button className="icon-btn" title="Change Credentials" onClick={() => setOpenCredModal(true)}>
-                            <i className="fa-solid fa-gear"></i>
-                        </button>
-                        <button className="logout-btn" onClick={handleLogout} title="Logout">
-                            Logout <i className="fa-solid fa-arrow-right-from-bracket"></i>
-                        </button>
-                    </div>
+                <div className="header-actions">
+                    <button className="icon-btn" title="Change Credentials" onClick={() => setOpenCredModal(true)}>
+                        <GearIcon size={17} />
+                    </button>
+                    <button className="logout-btn" onClick={handleLogout} title="Logout">
+                        <span className="logout-text">Logout</span> <LogoutIcon size={16} />
+                    </button>
                 </div>
             </header>
 
-            {/* TOP KPI ROW */}
+            {/* KPI ROW */}
             <div className="kpi-row">
-                <div className="kpi-card">
-                    <span className="kpi-label">KWH IMPORT</span>
-                    <div className="kpi-value">{formatEnergyCustom(liveData?.kwh_import, 1000)} <span className="unit">kWh</span></div>
-                </div>
-                <div className="kpi-card">
-                    <span className="kpi-label">KWH EXPORT</span>
-                    <div className="kpi-value">{formatEnergyCustom(liveData?.kwh_export, 1000)} <span className="unit">kWh</span></div>
-                </div>
-                <div className="kpi-card">
-                    <span className="kpi-label">KVAH IMPORT</span>
-                    <div className="kpi-value highlight-orange">{formatEnergyCustom(liveData?.kvah_import, 1000)} <span className="unit">kVAh</span></div>
-                </div>
-                <div className="kpi-card">
-                    <span className="kpi-label">KVAH EXPORT</span>
-                    <div className="kpi-value highlight-orange">{formatEnergyCustom(liveData?.kvah_export, 1000)} <span className="unit">kVAh</span></div>
-                </div>
-                <div className="kpi-card">
-                    <span className="kpi-label">KVARH IMPORT</span>
-                    <div className="kpi-value highlight-green">{formatEnergyCustom(liveData?.kvarh_import, 10)} <span className="unit">kVArh</span></div>
-                </div>
-                <div className="kpi-card">
-                    <span className="kpi-label">KVARH EXPORT</span>
-                    <div className="kpi-value highlight-green">{formatEnergyCustom(liveData?.kvarh_export, 100)} <span className="unit">kVArh</span></div>
-                </div>
+                {KPIS.map(kpi => (
+                    <div className="kpi-card surface" key={kpi.field} style={{ '--tone': kpi.tone }}>
+                        <span className="kpi-label"><span className="dot"></span>{kpi.label}</span>
+                        <div className="kpi-value num">
+                            {formatEnergyCustom(liveData?.[kpi.field], kpi.divisor)}
+                            <span className="unit">{kpi.unit}</span>
+                        </div>
+                    </div>
+                ))}
             </div>
 
             {/* MAIN CONTENT GRID */}
             <div className="main-grid">
-                
+
                 {/* LEFT PANEL: PHASE ELECTRICAL PARAMETERS */}
-                <div className="panel">
+                <section className="panel surface">
                     <div className="panel-header">
-                        <h2>PHASE ELECTRICAL PARAMETERS</h2>
-                        <i className="fa-solid fa-bolt icon-3d-bolt"></i>
-                    </div>
-                    
-                    <div className="param-summary-row">
-                        <div className="param-box">
-                            <span className="param-title">Average Voltage</span>
-                            <div className="param-val">{formatVoltage(liveData?.voltage)}</div>
-                            <span className="param-unit">kV</span>
-                        </div>
-                        <div className="param-box">
-                            <span className="param-title">Average Current</span>
-                            <div className="param-val highlight-green">{formatValue(liveData?.current)}</div>
-                            <span className="param-unit">A</span>
-                        </div>
-                        <div className="param-box">
-                            <span className="param-title">Average Active</span>
-                            <div className="param-val">{formatValue(liveData?.kw)}</div>
-                            <span className="param-unit">MW</span>
-                        </div>
-                        <div className="param-box">
-                            <span className="param-title">Average Reactive</span>
-                            <div className="param-val">{formatValue(liveData?.kvar)}</div>
-                            <span className="param-unit">MVAr</span>
-                        </div>
-                        <div className="param-box">
-                            <span className="param-title">Average Apparent</span>
-                            <div className="param-val">{formatValue(liveData?.kva)}</div>
-                            <span className="param-unit">MVA</span>
-                        </div>
+                        <span className="panel-title">Phase Electrical Parameters</span>
+                        <span className="panel-icon"><BoltIcon size={15} /></span>
                     </div>
 
+                    <div className="param-summary-row">
+                        {AVERAGE_METRICS.map(m => (
+                            <div className="param-box" key={m.field}>
+                                <span className="param-title">{m.label}</span>
+                                <div className="param-val num">
+                                    {m.fmt(liveData?.[m.field])}
+                                    <span className="param-unit">{m.unit}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Desktop / tablet: table */}
                     <div className="table-container">
                         <table className="data-table">
                             <thead>
                                 <tr>
                                     <th>Phase</th>
-                                    <th>Voltage (kV)</th>
-                                    <th>Current (A)</th>
-                                    <th>Active (MW)</th>
-                                    <th>Apparent (kVA)</th>
-                                    <th>Reactive (kVAr)</th>
+                                    {PHASE_METRICS.map(m => (
+                                        <th key={m.field}>{m.label}<span className="th-unit">({m.unit})</span></th>
+                                    ))}
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr className="row-r-color">
-                                    <td className="phase-col">R</td>
-                                    <td>{formatVoltage(liveData?.voltage_r)}</td>
-                                    <td>{formatValue(liveData?.current_r)}</td>
-                                    <td>{formatValue(liveData?.kw_r)}</td>
-                                    <td>{formatValue(liveData?.kva_r)}</td>
-                                    <td>{formatValue(liveData?.kvar_r)}</td>
-                                </tr>
-                                <tr className="row-y-color">
-                                    <td className="phase-col">Y</td>
-                                    <td>{formatVoltage(liveData?.voltage_y)}</td>
-                                    <td>{formatValue(liveData?.current_y)}</td>
-                                    <td>{formatValue(liveData?.kw_y)}</td>
-                                    <td>{formatValue(liveData?.kva_y)}</td>
-                                    <td>{formatValue(liveData?.kvar_y)}</td>
-                                </tr>
-                                <tr className="row-b-color">
-                                    <td className="phase-col">B</td>
-                                    <td>{formatVoltage(liveData?.voltage_b)}</td>
-                                    <td>{formatValue(liveData?.current_b)}</td>
-                                    <td>{formatValue(liveData?.kw_b)}</td>
-                                    <td>{formatValue(liveData?.kva_b)}</td>
-                                    <td>{formatValue(liveData?.kvar_b)}</td>
-                                </tr>
+                                {PHASES.map(p => (
+                                    <tr key={p.key} style={{ '--pc': p.color, '--pc-soft': p.soft }}>
+                                        <td><span className="phase-chip">{p.name}</span></td>
+                                        {PHASE_METRICS.map(m => (
+                                            <td key={m.field}>{m.fmt(liveData?.[`${m.field}_${p.key}`])}</td>
+                                        ))}
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>
-                </div>
+
+                    {/* Phone: one card per phase */}
+                    <div className="phase-cards">
+                        {PHASES.map(p => (
+                            <div className="phase-card" key={p.key} style={{ '--pc': p.color, '--pc-soft': p.soft }}>
+                                <div className="phase-card-head">
+                                    <span className="phase-chip">{p.name}</span>
+                                    <span>Phase {p.name}</span>
+                                </div>
+                                <div className="phase-card-grid">
+                                    {PHASE_METRICS.map(m => (
+                                        <div key={m.field}>
+                                            <span className="phase-metric-label">{m.label} ({m.unit})</span>
+                                            <span className="phase-metric-value num">{m.fmt(liveData?.[`${m.field}_${p.key}`])}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
 
                 {/* RIGHT PANEL: LIVE POWER FACTOR ANALYSIS */}
-                <div className="panel pf-panel">
+                <section className="panel pf-panel surface" style={{ '--pf-tone': pfTone }}>
                     <div className="panel-header">
-                        <h2>LIVE POWER FACTOR ANALYSIS</h2>
-                        <i className="fa-solid fa-gauge-high icon-3d-gauge"></i>
+                        <span className="panel-title">Live Power Factor Analysis</span>
+                        <span className="panel-icon"><GaugeIcon size={15} /></span>
                     </div>
 
                     <div className="avg-pf-container">
-                        <span className="avg-pf-label">AVERAGE POWER FACTOR</span>
-                        <div className="avg-pf-circle">
-                            <div className="avg-pf-value">{formatValue(pfSys)}</div>
+                        <div className="pf-gauge">
+                            <svg viewBox="0 0 200 200">
+                                <circle className="track" cx="100" cy="100" r={RING_R} fill="none" strokeWidth="10" />
+                                <circle
+                                    className="progress" cx="100" cy="100" r={RING_R} fill="none" strokeWidth="10"
+                                    strokeLinecap="round" strokeDasharray={RING_C} strokeDashoffset={ringOffset}
+                                />
+                            </svg>
+                            <div className="pf-gauge-center">
+                                <div className="avg-pf-value num">{formatValue(liveData?.power_factor)}</div>
+                                <div className="avg-pf-label">Avg Power Factor</div>
+                            </div>
                         </div>
+                        <span className="pf-quality">{pfQuality}</span>
                     </div>
 
                     <div className="phase-pf-list">
-                        <div className="pf-row">
-                            <span className="pf-phase-name">Phase R</span>
-                            <div className="pf-box pf-box-r">{formatValue(liveData?.pf_r)}</div>
-                        </div>
-                        <div className="pf-row">
-                            <span className="pf-phase-name">Phase Y</span>
-                            <div className="pf-box pf-box-y">{formatValue(liveData?.pf_y)}</div>
-                        </div>
-                        <div className="pf-row">
-                            <span className="pf-phase-name">Phase B</span>
-                            <div className="pf-box pf-box-b">{formatValue(liveData?.pf_b)}</div>
-                        </div>
+                        {PHASES.map(p => {
+                            const raw = liveData?.[`pf_${p.key}`];
+                            return (
+                                <div className="pf-row" key={p.key} style={{ '--pc': p.color, '--pc-soft': p.soft }}>
+                                    <div className="pf-row-top">
+                                        <span className="pf-phase-name">
+                                            <span className="phase-chip">{p.name}</span> Phase {p.name}
+                                        </span>
+                                        <span className="pf-box num">{formatValue(raw)}</span>
+                                    </div>
+                                    <div className="pf-bar"><span style={{ width: `${pfPercent(raw)}%` }}></span></div>
+                                </div>
+                            );
+                        })}
                     </div>
-                </div>
+                </section>
 
             </div>
 
@@ -571,7 +887,7 @@ const TataPowerDashboard = () => {
             {openCredModal && (
                 <div className="modal-overlay">
                     <div className="modal-content">
-                        <h3>Update Credentials</h3>
+                        <div className="modal-title">Update Credentials</div>
                         <div className="form-group">
                             <label>Company ID</label>
                             <input value={formData.companyId} onChange={e => setFormData({...formData, companyId: e.target.value})} />
@@ -599,15 +915,13 @@ const TataPowerDashboard = () => {
             {/* SECURITY LOGOUT MODAL */}
             {showLogoutModal && (
                 <div className="modal-overlay" style={{ backdropFilter: 'blur(10px)', zIndex: 9999 }}>
-                    <div className="modal-content" style={{ border: '2px solid var(--accent-red)', boxShadow: '0 0 30px rgba(239, 68, 68, 0.4)' }}>
-                        <h3 style={{ color: 'var(--accent-red)' }}>Security Alert</h3>
-                        <p style={{ color: 'var(--text-main)', lineHeight: '1.5' }}>
+                    <div className="modal-content security-modal">
+                        <div className="modal-title">Security Alert</div>
+                        <p>
                             Your account credentials have been changed from another session. For your security, you are being automatically logged out.
                         </p>
-                        <div className="text-error">{logoutCountdown}</div>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                            Seconds Remaining
-                        </p>
+                        <div className="text-error num">{logoutCountdown}</div>
+                        <p className="countdown-label">Seconds Remaining</p>
                     </div>
                 </div>
             )}
